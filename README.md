@@ -7,7 +7,7 @@ This runtime is designed as a simplified alternative to the full xGSD engine —
 
 ## Documentation
 
-Read the [**Documentation**](https://isolated-.github.io/xgsd-userdocs/labs/workers).
+Read the [**Documentation**](https://isolated-.github.io/xgsd-userdocs/labs/Workers/overview).
 
 ## Install
 
