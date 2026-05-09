@@ -19,6 +19,11 @@ export function createHandler(config: WorkerConfig): ActivationHandler {
   return async function handler(activation) {
     return runWorker({
       ...config,
+      limits: {
+        ttl: 1000,
+        memory: 64,
+        ...config.limits,
+      },
       id: activation.id,
       cwd: activation.cwd,
       data: activation.data,

@@ -1,14 +1,10 @@
-import {readFileSync, writeFileSync, mkdirSync} from 'fs'
+import {readFileSync, writeFileSync, mkdirSync, existsSync} from 'fs'
 import {writeFile, readFile, constants, access, mkdir} from 'fs/promises'
 import {dirname} from 'path'
 
 export async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path, constants.F_OK)
-    return true
-  } catch {
-    return false
-  }
+  // temp fix
+  return pathExistsSync(path)
 }
 
 // ensureDir
@@ -54,10 +50,5 @@ export function writeJsonSync(path: string, data: unknown, pretty = true): void 
 }
 
 export function pathExistsSync(path: string): boolean {
-  try {
-    require('fs').accessSync(path, constants.F_OK)
-    return true
-  } catch {
-    return false
-  }
+  return existsSync(path)
 }

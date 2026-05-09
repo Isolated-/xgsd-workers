@@ -41,7 +41,7 @@ export async function createBundle({
   const cacheFilesExist = pathExistsSync(outPackageJsonPath) && pathExistsSync(out)
 
   if (cacheFilesExist && cacheStrategy === 'always') {
-    console.log(`${outPathRel} loaded from cache (set cache.strategy = "never" if this is unintentional)`)
+    console.log(`[bundle] ${outPathRel} loaded from cache (set cache.strategy = "never" if this is unintentional)`)
 
     return out
   }
@@ -52,7 +52,7 @@ export async function createBundle({
     if (outPackageJson.hash && safeHashCompare(outPackageJson.hash, hash)) {
       // cache hit
 
-      console.log(`${outPathRel} loaded from cache (set cache.strategy = "never" if this is unintentional)`)
+      console.log(`[bundle] ${outPathRel} loaded from cache (set cache.strategy = "never" if this is unintentional)`)
 
       return out
     }

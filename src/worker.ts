@@ -213,6 +213,7 @@ export async function runWorker<T>(context: WorkerContext): Promise<WorkerResult
         JSON.stringify({
           id,
           version,
+          limits: ctx.limits ?? {},
           ok: res.ok,
           code: res.code,
           duration: res.duration,

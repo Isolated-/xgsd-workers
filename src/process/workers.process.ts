@@ -112,8 +112,9 @@ async function main(ctx: WorkerContext) {
     // runtime
     const runtime = compose([...middleware, wrapper(mod.default)])
     const version = process.env.XGSD_WORKER_VERSION ?? 'unknown'
+    const {ttl, memory} = ctx.limits!
 
-    console.log(`[runtime] started running worker (version: ${version})`)
+    console.log(`[runtime] started (version: ${version}, ttl: ${ttl?.toFixed(2)} ms, memory: ${memory}MB)`)
 
     const start = performance.now()
 
