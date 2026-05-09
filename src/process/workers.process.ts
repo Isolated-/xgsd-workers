@@ -31,6 +31,7 @@ function startHeartbeat(interval = 50) {
   }, interval)
 }
 
+/*
 export function wrapper(fn: RunFn<unknown>) {
   const {execute} = resolveDependency('@xgsd/engine', ctx.cwd!)
 
@@ -39,6 +40,25 @@ export function wrapper(fn: RunFn<unknown>) {
 
     ctx.result = res.data
     ctx.error = res.error
+
+    await next()
+  }
+}*/
+
+export function wrapper(fn: RunFn<unknown>) {
+  return async (ctx: WorkerContext, next: Next) => {
+    if (ctx.execute) {
+      const result = await ctx.execute(fn)
+
+      ctx.result = result.data
+      ctx.error = result.error
+    } else {
+      const {execute} = resolveDependency('@xgsd/engine', ctx.cwd!)
+      const {data, error} = await execute(ctx.data as any, fn)
+
+      ctx.result = data
+      ctx.error = error
+    }
 
     await next()
   }

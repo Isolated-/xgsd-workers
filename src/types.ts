@@ -61,6 +61,7 @@ export type WorkerContext<T = unknown> = WorkerConfig & {
   id?: string
   data: T
   cwd: string
+  execute?: any
   result?: any
   error?: any
   code?: number
