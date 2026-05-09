@@ -5,8 +5,6 @@ export function getPackageVersion(input: string, root: string = process.cwd()): 
   try {
     const pkgPath = resolvePackageJson(input, root)
 
-    console.log(pkgPath)
-
     const json = readJsonSync(pkgPath)
 
     if (!json?.version || typeof json.version !== 'string') {
