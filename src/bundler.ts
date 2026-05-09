@@ -111,12 +111,12 @@ export function resolvePath(moduleName: string, root: string): string {
 
 export function resolveDependency(dependency: string, projectRoot: string): any {
   try {
-    const require = createRequire(projectRoot)
+    const require = createRequire(join(projectRoot, 'package.json'))
     return require(dependency)
   } catch {}
 
   throw new Error(
-    `Could not resolve ${dependency}.\nInstall it with \`yarn add ${dependency}\` or re-install @xgsd/cli\nPath: ${projectRoot}.`,
+    `Could not resolve ${dependency}.\nInstall it with \`yarn add ${dependency}\`.\nPath: ${projectRoot}.`,
   )
 }
 
