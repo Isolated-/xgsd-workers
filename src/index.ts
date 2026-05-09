@@ -4,6 +4,8 @@ import {runWorker} from './worker.js'
 export {runWorker}
 export * from './types.js'
 
+export {resolveDependency} from './bundler.js'
+
 export type Activation<T = unknown> = {
   id?: string
   data?: T
