@@ -48,12 +48,12 @@ export type WorkerConfig = {
       strategy: 'never'
     }
   }
-  http?: {
-    enabled?: boolean
-  }
   limits?: {
     ttl?: number
     memory?: number
+  }
+  output?: {
+    mode?: 'raw' | 'wrapped' | 'auto' // support more types
   }
 }
 

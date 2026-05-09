@@ -224,7 +224,12 @@ export async function runWorker<T>(context: WorkerContext): Promise<WorkerResult
 
       completed = true
 
-      resolve(res as any)
+      if (ctx.output?.mode === 'raw') {
+        resolve(res.result ?? (res.error as any))
+      } else {
+        resolve(res as any)
+      }
+
       cleanup()
     })
   })

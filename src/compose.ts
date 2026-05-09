@@ -49,13 +49,11 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
         res.code = ctx.code
         res.result = null
         res.error = result.error ?? result.data?.error
-      }
-
-      if (result.data && result.data.result) {
+      } else {
         res.ok = true
         res.code = ctx.code
-        res.result = result.data.result
-        res.error = result.error ?? result.data?.error
+        res.result = result.data?.result ?? null
+        res.error = null
       }
     }
 
