@@ -3,6 +3,7 @@ import {createBundle, resolveDependency} from '../bundler'
 import {compose, Next} from '../compose'
 import {WorkerContext, WorkerError, WorkerErrorCode} from '../types'
 import {pathExists} from '../util/fs'
+import {getPackageVersion} from '../util/package'
 
 export type RunFn<T> = (data: T) => Promise<any>
 
@@ -110,8 +111,9 @@ async function main(ctx: WorkerContext) {
 
     // runtime
     const runtime = compose([...middleware, wrapper(mod.default)])
+    const version = process.env.XGSD_WORKER_VERSION ?? 'unknown'
 
-    console.log(`[runtime] started running worker`)
+    console.log(`[runtime] started running worker (version: ${version})`)
 
     const start = performance.now()
 

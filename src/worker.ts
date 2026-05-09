@@ -4,6 +4,7 @@ import {WorkerContext, WorkerError, WorkerErrorCode, WorkerResult} from './types
 import {createWriteStream, appendFileSync} from 'fs'
 import {ensureDir} from './util/fs.js'
 import {randomUUID} from 'crypto'
+import {getPackageVersion} from './util/package.js'
 
 export function startWorkerGuard(
   child: any,
@@ -101,6 +102,7 @@ export async function runWorker<T>(context: WorkerContext): Promise<WorkerResult
     let res: WorkerResult<unknown>
 
     const contextStr = JSON.stringify(ctx)
+    const version = getPackageVersion('@xgsd/workers', ctx.cwd)
 
     // TODO: remove hardcoded worker path
     const child = fork(join(__dirname, 'process', 'workers.process.js'), {
@@ -108,6 +110,7 @@ export async function runWorker<T>(context: WorkerContext): Promise<WorkerResult
       //execArgv: [`--max-old-space-size=${ctx.limits?.memory ?? 128}`],
       env: {
         ...ctx.env,
+        XGSD_WORKER_VERSION: version,
         XGSD_CTX: contextStr,
       },
     })
@@ -209,6 +212,7 @@ export async function runWorker<T>(context: WorkerContext): Promise<WorkerResult
         join(path, 'activations.jsonl'),
         JSON.stringify({
           id,
+          version,
           ok: res.ok,
           code: res.code,
           duration: res.duration,
