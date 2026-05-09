@@ -162,7 +162,7 @@ export async function runWorker<T>(context: WorkerContext): Promise<WorkerResult
 
       for (const line of lines) {
         // log child process messages (typically from usercode)
-        console.log(`${line}`)
+        console.log(line.trim())
 
         try {
           writeEvent(JSON.parse(line))
@@ -179,7 +179,7 @@ export async function runWorker<T>(context: WorkerContext): Promise<WorkerResult
 
     child.stderr?.on('data', (chunk) => {
       const e = {type: 'error', message: chunk.toString(), timestamp: Date.now()}
-      console.error(e.message)
+      //console.error(e.message)
       writeEvent(e)
     })
 

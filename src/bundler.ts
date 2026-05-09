@@ -87,7 +87,7 @@ export async function createBundle({
   console.log(`[bundler] completed in ${ms.toFixed(2)}ms.`)
 
   if (cacheStrategy === 'never') {
-    console.warn(`[bundler] (warn) you can speed this up with bundler.cache.strategy = always|change.`)
+    console.log(`[bundler] you can speed this up with bundler.cache.strategy = always|change.`)
   }
 
   return out
