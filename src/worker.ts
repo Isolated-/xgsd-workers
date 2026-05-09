@@ -213,12 +213,11 @@ export async function runWorker<T>(context: WorkerContext): Promise<WorkerResult
         JSON.stringify({
           id,
           version,
-          limits: ctx.limits ?? {},
+          ...(ctx.limits ?? {}),
           ok: res.ok,
           code: res.code,
           duration: res.duration,
           error: res.error?.code ?? res.error?.message,
-          result: res.result !== null,
           timestamp: new Date().toISOString(),
         }) + '\n',
       )
