@@ -1,0 +1,26 @@
+name: quick tests against ubuntu
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  unit-tests:
+    strategy:
+      matrix:
+        os: ['ubuntu-latest']
+        node_version: [24.x, 25.x]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node_version }}
+          cache: yarn
+
+      - run: yarn install --frozen-lockfile
+      - run: yarn test

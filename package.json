@@ -1,0 +1,52 @@
+{
+  "name": "@xgsd/workers",
+  "description": "Super lightweight alternative to standard xGSD runtime. Optimised for queues/serverless vs project orchestration.",
+  "version": "0.1.0-beta.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "module": "./dist/index.js",
+  "repository": "https://github.com/Isolated-/xgsd-workers",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    },
+    "./process/workers.process": {
+      "require": "./dist/process/workers.process.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "yarn clean && tsup",
+    "clean": "rm -rf dist",
+    "test": "jest ./src",
+    "test:integration": "jest ./tests",
+    "test:e2e": "jest ./e2e"
+  },
+  "devDependencies": {
+    "@oclif/prettier-config": "^0.2.1",
+    "@types/jest": "^30.0.0",
+    "jest": "^29.x",
+    "ts-jest": "^29.x",
+    "ts-node": "^10.9.2",
+    "tsup": "^8.5.1",
+    "typescript": "^5.x"
+  },
+  "peerDependencies": {
+    "esbuild": "^0.28.0",
+    "@xgsd/engine": "^1.0.0-stable"
+  },
+  "peerDependenciesMeta": {
+    "esbuild": {
+      "optional": false
+    },
+    "@xgsd/engine": {
+      "optional": false
+    }
+  }
+}

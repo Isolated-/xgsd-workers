@@ -1,0 +1,34 @@
+# Source
+src/
+tests/
+__tests__/
+*.test.ts
+*.spec.ts
+
+# Tooling / configs
+tsconfig.json
+tsconfig.*.json
+jest.config.*
+vitest.config.*
+.eslintrc*
+.prettierrc*
+*.log
+
+# Dev / repo stuff
+.github/
+.vscode/
+.idea/
+
+# Build artifacts (keep dist!)
+coverage/
+.tmp/
+.cache/
+
+# Local env
+.env
+.env.*
+
+# Misc
+*.md
+!README.md
+!LICENSE
