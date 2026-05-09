@@ -38,8 +38,8 @@
     "typescript": "^5.x"
   },
   "peerDependencies": {
-    "esbuild": "^0.28.0",
-    "@xgsd/engine": "^1.0.0-stable"
+    "@xgsd/engine": "^1.0.0-stable",
+    "esbuild": "^0.28.0"
   },
   "peerDependenciesMeta": {
     "esbuild": {

@@ -3,7 +3,6 @@ import {createBundle, resolveDependency} from '../bundler'
 import {compose, Next} from '../compose'
 import {WorkerContext, WorkerError, WorkerErrorCode} from '../types'
 import {pathExists} from '../util/fs'
-import {getPackageVersion} from '../util/package'
 
 export type RunFn<T> = (data: T) => Promise<any>
 
@@ -30,20 +29,6 @@ function startHeartbeat(interval = 50) {
     })
   }, interval)
 }
-
-/*
-export function wrapper(fn: RunFn<unknown>) {
-  const {execute} = resolveDependency('@xgsd/engine', ctx.cwd!)
-
-  return async (ctx: WorkerContext, next: Next) => {
-    const res = await execute(ctx.data as any, fn)
-
-    ctx.result = res.data
-    ctx.error = res.error
-
-    await next()
-  }
-}*/
 
 export function wrapper(fn: RunFn<unknown>) {
   return async (ctx: WorkerContext, next: Next) => {
@@ -90,6 +75,8 @@ async function main(ctx: WorkerContext) {
         entry,
         cacheStrategy: ctx.bundler?.cache?.strategy ?? 'never',
       })
+    } else {
+      console.log(`[runtime] bundle stage skipped - disabled by config`)
     }
 
     let mod = undefined
@@ -135,10 +122,13 @@ async function main(ctx: WorkerContext) {
     const {ttl, memory} = ctx.limits!
 
     console.log(`[runtime] started (version: ${version}, ttl: ${ttl?.toFixed(2)} ms, memory: ${memory}MB)`)
+    console.log(`[usercode]`)
 
     const start = performance.now()
 
     const result = await runtime(ctx)
+
+    console.log(`[end usercode]`)
 
     const ms = performance.now() - start
     console.log(`[runtime] finished running worker took ${ms.toFixed(2)} ms`)

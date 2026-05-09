@@ -1,5 +1,6 @@
-import {WorkerResult, WorkerConfig} from './types.js'
-import {runWorker} from './worker.js'
+import {parse} from 'valibot'
+import {WorkerResult, WorkerConfig, WorkerErrorCode} from './types.js'
+import {formatWorkerResult, runWorker} from './worker.js'
 
 export {runWorker}
 export * from './types.js'
@@ -15,18 +16,26 @@ export type Activation<T = unknown> = {
 
 export type ActivationHandler = <T = unknown>(activation: Activation<T>) => Promise<WorkerResult<T>>
 
-export function createHandler(config: WorkerConfig): ActivationHandler {
+export function createHandler(
+  config: WorkerConfig,
+  validator?: (config: WorkerConfig) => WorkerConfig,
+): ActivationHandler {
   return async function handler(activation) {
+    let parsed = undefined
+    try {
+      parsed = validator?.(config) ?? config
+    } catch (error: any) {
+      return formatWorkerResult({
+        error: {
+          code: WorkerErrorCode.CODE_INVALID_CONFIG,
+          message: error?.message ?? 'unknown',
+        },
+        duration: 0,
+      })
+    }
+
     return runWorker({
-      output: {
-        mode: 'wrapped',
-      },
-      limits: {
-        ttl: 1000,
-        memory: 64,
-        ...config.limits,
-      },
-      ...config,
+      ...parsed,
       id: activation.id,
       cwd: activation.cwd,
       data: activation.data,

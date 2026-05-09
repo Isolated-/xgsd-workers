@@ -2,6 +2,8 @@ export enum WorkerErrorCode {
   // thrown when limits exceeded (ttl/memory)
   CODE_WORKER_GUARD = 'CODE_WORKER_GUARD',
 
+  CODE_INVALID_CONFIG = 'CODE_INVALID_CONFIG',
+
   // thrown when entry file is invalid/cannot be parsed
   CODE_INVALID_ENTRY_FILE = 'CODE_INVALID_ENTRY_FILE',
 
@@ -39,14 +41,20 @@ export type WorkerResult<T> =
       duration: number
     }
 
+export type WorkerConfigCacheStrategy = 'always' | 'change' | 'never'
+export type WorkerConfigCache = {
+  strategy?: WorkerConfigCacheStrategy
+}
+
 export type WorkerConfig = {
   entry: string
   dist?: string
   bundler?: {
     enabled?: boolean
-    cache?: {
-      strategy: 'never'
-    }
+    cache?: WorkerConfigCache
+  }
+  http?: {
+    cache?: WorkerConfigCache
   }
   limits?: {
     ttl?: number
