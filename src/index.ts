@@ -1,5 +1,8 @@
-import {WorkerResult, WorkerConfig} from './types'
-import {runWorker} from './worker'
+import {WorkerResult, WorkerConfig} from './types.js'
+import {runWorker} from './worker.js'
+
+export {runWorker}
+export * from './types.js'
 
 export type Activation<T = unknown> = {
   id?: string
