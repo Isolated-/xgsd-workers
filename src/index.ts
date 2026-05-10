@@ -1,5 +1,5 @@
 import {Writable} from 'stream'
-import {WorkerConfig, WorkerErrorCode, ActivationHandler} from './core/types.js'
+import {WorkerConfig, WorkerErrorCode, ActivationHandler, WorkerResult} from './core/types.js'
 import {runWorker} from './core/worker.js'
 import {completeWorkerSetupFromConfig} from './util/setup.js'
 import {formatWorkerResult} from './util/format.js'
@@ -35,9 +35,10 @@ export function createHandler(opts: CreateHandlerOpts): ActivationHandler {
       cwd: activation.cwd,
       data: activation.data!,
       env: activation.env,
+      config: validated,
       stream,
     })
 
-    return runWorker({ctx, signal})
+    return runWorker({ctx, signal}) as Promise<WorkerResult<unknown>>
   }
 }
