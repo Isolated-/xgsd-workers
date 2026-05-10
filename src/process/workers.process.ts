@@ -3,8 +3,12 @@ import {createBundle, resolveDependency} from '../bundler'
 import {compose, Next} from '../compose'
 import {WorkerContext, WorkerError, WorkerErrorCode} from '../types'
 import {pathExists} from '../util/fs'
+import {createEventCollector} from '../worker'
 
 export type RunFn<T> = (data: T) => Promise<any>
+
+const ctx = JSON.parse(process.env.XGSD_CTX ?? '') as WorkerContext
+const {execute} = resolveDependency('@xgsd/engine', ctx.cwd!)
 
 function dispatch(event: 'ALIVE' | 'DONE' | 'ERROR', payload: any) {
   process.send?.({
@@ -38,8 +42,7 @@ export function wrapper(fn: RunFn<unknown>) {
       ctx.result = result.data
       ctx.error = result.error
     } else {
-      const {execute} = resolveDependency('@xgsd/engine', ctx.cwd!)
-      const {data, error} = await execute(ctx.data as any, fn)
+      const {data, error} = await execute(ctx as any, fn)
 
       ctx.result = data
       ctx.error = error
@@ -49,11 +52,26 @@ export function wrapper(fn: RunFn<unknown>) {
   }
 }
 
+function createLogger(ctx: WorkerContext) {
+  return {
+    log: (message: Record<string, any>) => {
+      console.log(
+        JSON.stringify({
+          type: 'log',
+          ...message,
+        }),
+      )
+    },
+  }
+}
+
 async function main(ctx: WorkerContext) {
   const heartbeat = startHeartbeat()
 
   const {entry, cwd} = ctx
   let entryFile = join(cwd ?? '', entry)
+
+  const logger = createLogger(ctx)
 
   try {
     if (!(await pathExists(entryFile))) {
@@ -76,7 +94,8 @@ async function main(ctx: WorkerContext) {
         cacheStrategy: ctx.bundler?.cache?.strategy ?? 'never',
       })
     } else {
-      console.log(`[runtime] bundle stage skipped - disabled by config`)
+      //console.log(`[runtime] bundle stage skipped - disabled by config`)
+      logger.log({stage: 'bundle', message: 'bundler is disabled, enabled it with `bundler.enabled` = true'})
     }
 
     let mod = undefined
@@ -113,28 +132,33 @@ async function main(ctx: WorkerContext) {
       }
 
       const dt = (performance.now() - start).toFixed(2)
-      console.log(`[middleware] ${middleware.length} functions registered in ${dt} ms`)
+      logger.log({stage: 'middleware', message: `loaded ${middleware.length} middleware functions`, dt})
     }
 
     // runtime
     const runtime = compose([...middleware, wrapper(mod.default)])
     const version = process.env.XGSD_WORKER_VERSION ?? 'unknown'
-    const {ttl, memory} = ctx.limits!
+    const {ttl, memory} = ctx.limits ?? {ttl: 1, memory: 1}
 
-    console.log(`[runtime] started (version: ${version}, ttl: ${ttl?.toFixed(2)} ms, memory: ${memory}MB)`)
-    console.log(`[usercode]`)
+    //console.log(`[runtime] started (version: ${version}, ttl: ${ttl?.toFixed(2)} ms, memory: ${memory}MB)`)
+
+    logger.log({stage: 'runtime', status: 'start', version, ttl, memory, ctx: ctx.id})
 
     const start = performance.now()
 
     const result = await runtime(ctx)
 
-    console.log(`[end usercode]`)
-
     const ms = performance.now() - start
-    console.log(`[runtime] finished running worker took ${ms.toFixed(2)} ms`)
+
+    logger.log({stage: 'runtime', status: 'end', message: 'finished', ms, version, ttl, memory, ctx: ctx.id})
 
     if (result.error) {
-      console.warn(`[runtime] finished with errors (error: ${ctx.error?.message ?? 'unknown'})`)
+      logger.log({
+        type: 'warn',
+        stage: 'runtime',
+        message: `finished with errors`,
+        error: ctx.error?.message ?? 'unknown',
+      })
     }
 
     dispatch('DONE', {result})
@@ -143,5 +167,4 @@ async function main(ctx: WorkerContext) {
   }
 }
 
-const ctx = JSON.parse(process.env.XGSD_CTX!) as WorkerContext
 main(ctx)

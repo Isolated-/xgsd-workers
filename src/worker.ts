@@ -87,12 +87,88 @@ export function formatWorkerResult(opts: {result?: any; error?: any; duration: n
   }
 }
 
+// create a single source of truth
+// for activations/logs/errors (Signals)
+// tomorrow implement this:
+export type SignalType = 'log' | 'error' | 'activation'
+export type Signal =
+  | {
+      // activation id
+      ctx: string
+      type: SignalType
+      message: string
+      timestamp: number
+      meta?: Record<string, any>
+    }
+  | {ctx: string; type: 'activation'; message: string; timestamp: number; meta: ActivationSignal}
+
+export type ActivationSignal = {
+  message?: string
+  ok: boolean
+  error?: string
+  version: string
+  duration: number
+}
+
+export function createEventCollector<T>(path: string, opts?: {id?: string; normalise?: (input: T) => T}) {
+  const stream = createWriteStream(path, {flags: 'a'})
+
+  return {
+    emit: (e: T) => {
+      const normalised = opts?.normalise?.(e) ?? normaliseKeys(e)
+
+      if (opts?.id) {
+        normalised.id = opts?.id
+      }
+
+      if (!normalised.timestamp) {
+        normalised.timestamp = Date.now()
+      }
+
+      stream.write(JSON.stringify(normalised) + '\n')
+    },
+  }
+}
+
+export function createSignalCollector<T, R>(path: string, opts?: {id?: string; mapper?: (input: T) => R}) {
+  const stream = createWriteStream(path, {flags: 'a'})
+
+  return {
+    emit: (e: T) => {
+      const mapped = opts?.mapper?.(e) ?? normaliseKeys(e)
+
+      if (!mapped.timestamp) {
+        mapped.timestamp = Date.now()
+      }
+
+      stream.write(JSON.stringify(mapped) + '\n')
+    },
+  }
+}
+
+export const createContextWrapper = (ctx: WorkerContext) => {
+  return {
+    mapper: (input: ActivationSignal): Signal => ({
+      ctx: ctx.id!,
+      type: 'activation',
+      message: input.message ?? 'none',
+      timestamp: Date.now(),
+      meta: input,
+    }),
+  }
+}
+
 export async function runWorker<T>(context: WorkerContext): Promise<WorkerResult<T>> {
+  // log activation
+  // TODO: extract this
+
   return new Promise(async (resolve, reject) => {
     const id = randomUUID()
 
     const ctx = {...context, id}
     const start = performance.now()
+
+    const wrapper = createContextWrapper(ctx)
 
     const path = join(ctx.cwd!, ctx.dist ?? '.xgsd')
     await ensureDir(path)
@@ -103,6 +179,18 @@ export async function runWorker<T>(context: WorkerContext): Promise<WorkerResult
 
     const contextStr = JSON.stringify(ctx)
     const version = getPackageVersion('@xgsd/workers', ctx.cwd)
+
+    const {ttl = 1000, memory = 64} = context.limits ?? {}
+
+    const activationCollector = createSignalCollector<ActivationSignal, Signal>(join(path, 'activations.jsonl'), {
+      id: ctx.id,
+      mapper: wrapper.mapper,
+    })
+
+    ctx.limits = {
+      ttl: ctx.limits?.ttl ?? ttl,
+      memory: ctx.limits?.memory ?? memory,
+    }
 
     // TODO: remove hardcoded worker path
     const child = fork(join(__dirname, 'process', 'workers.process.js'), {
@@ -116,6 +204,7 @@ export async function runWorker<T>(context: WorkerContext): Promise<WorkerResult
     })
 
     const events = createWriteStream(join(path, 'events.jsonl'), {flags: 'a'})
+    const collector = createEventCollector(join(path, 'events.jsonl'), {id})
 
     const startGuard = () => {
       startWorkerGuard(child, ctx.limits ?? {}, (reason: string) => {
@@ -130,13 +219,20 @@ export async function runWorker<T>(context: WorkerContext): Promise<WorkerResult
         }
 
         console.warn(`[guard] worker suspended (reason: ${reason})`)
-
-        writeEvent({
-          type: 'error',
-          message: err.message,
-          guard: true,
-          timestamp: Date.now(),
+        collector.emit({
+          type: 'log',
+          stage: 'guard',
+          message: `worker suspended, reason: ${reason}`,
         })
+
+        collector.emit({
+          type: 'error',
+          guard: true,
+          code: WorkerErrorCode.CODE_WORKER_GUARD,
+          message: err.message!,
+        })
+
+        activationCollector.emit({ok: false, error: err.message!, version, duration: ttl})
 
         cleanup()
 
@@ -162,16 +258,15 @@ export async function runWorker<T>(context: WorkerContext): Promise<WorkerResult
 
       for (const line of lines) {
         // log child process messages (typically from usercode)
-        console.log(line.trim())
+        //console.log(line.trim())
 
         try {
-          writeEvent(JSON.parse(line))
+          collector.emit(JSON.parse(line))
         } catch {
           // optionally fallback for non-json logs
-          writeEvent({
+          collector.emit({
             type: 'log',
             message: line,
-            timestamp: Date.now(),
           })
         }
       }
@@ -207,20 +302,15 @@ export async function runWorker<T>(context: WorkerContext): Promise<WorkerResult
 
       res.duration = performance.now() - start
 
-      // log activation
-      appendFileSync(
-        join(path, 'activations.jsonl'),
-        JSON.stringify({
-          id,
-          version,
-          ...(ctx.limits ?? {}),
-          ok: res.ok,
-          code: res.code,
-          duration: res.duration,
-          error: res.error?.code ?? res.error?.message,
-          timestamp: new Date().toISOString(),
-        }) + '\n',
-      )
+      /*activationCollector.emit({
+        id,
+        type: 'activation',
+        version,
+        limits: {ttl, memory},
+        ok: res.ok,
+        duration: res.duration,
+        error: res.error?.code ?? res.error?.message,
+      })*/
 
       completed = true
 
