@@ -1,29 +1,25 @@
-import {parse} from 'valibot'
-import {WorkerResult, WorkerConfig, WorkerErrorCode} from './types.js'
-import {formatWorkerResult, runWorker} from './worker.js'
+import {Writable} from 'stream'
+import {WorkerConfig, WorkerErrorCode, ActivationHandler} from './core/types.js'
+import {runWorker} from './core/worker.js'
+import {completeWorkerSetupFromConfig} from './util/setup.js'
+import {formatWorkerResult} from './util/format.js'
 
 export {runWorker}
-export * from './types.js'
+export * from './core/types.js'
 
-export {resolveDependency} from './bundler.js'
-
-export type Activation<T = unknown> = {
-  id?: string
-  data?: T
-  env?: Record<string, unknown>
-  cwd: string
+type CreateHandlerOpts = {
+  config: WorkerConfig
+  stream?: Writable
+  validator?: (config: WorkerConfig) => WorkerConfig
 }
 
-export type ActivationHandler = <T = unknown>(activation: Activation<T>) => Promise<WorkerResult<T>>
+export function createHandler(opts: CreateHandlerOpts): ActivationHandler {
+  const {config, stream, validator} = opts
 
-export function createHandler(
-  config: WorkerConfig,
-  validator?: (config: WorkerConfig) => WorkerConfig,
-): ActivationHandler {
   return async function handler(activation) {
-    let parsed = undefined
+    let validated = undefined
     try {
-      parsed = validator?.(config) ?? config
+      validated = validator?.(config) ?? config
     } catch (error: any) {
       return formatWorkerResult({
         error: {
@@ -34,12 +30,14 @@ export function createHandler(
       })
     }
 
-    return runWorker({
-      ...parsed,
+    const {ctx, signal} = completeWorkerSetupFromConfig({
       id: activation.id,
       cwd: activation.cwd,
-      data: activation.data,
+      data: activation.data!,
       env: activation.env,
+      stream,
     })
+
+    return runWorker({ctx, signal})
   }
 }

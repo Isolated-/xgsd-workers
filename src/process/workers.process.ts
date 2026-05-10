@@ -1,14 +1,13 @@
 import {join} from 'path'
-import {createBundle, resolveDependency} from '../bundler'
-import {compose, Next} from '../compose'
-import {WorkerContext, WorkerError, WorkerErrorCode} from '../types'
+import {createBundle, resolveDependency} from '../core/bundler'
+import {compose, Next} from '../core/compose'
+import {Context, WorkerError, WorkerErrorCode} from '../core/types'
 import {pathExists} from '../util/fs'
-import {createEventCollector} from '../worker'
 
 export type RunFn<T> = (data: T) => Promise<any>
 
-const ctx = JSON.parse(process.env.XGSD_CTX ?? '') as WorkerContext
-const {execute} = resolveDependency('@xgsd/engine', ctx.cwd!)
+const ctx = JSON.parse(process.env.XGSD_CTX ?? '') as Context
+const {execute} = resolveDependency('@xgsd/engine', ctx.meta.cwd)
 
 function dispatch(event: 'ALIVE' | 'DONE' | 'ERROR', payload: any) {
   process.send?.({
@@ -35,7 +34,7 @@ function startHeartbeat(interval = 50) {
 }
 
 export function wrapper(fn: RunFn<unknown>) {
-  return async (ctx: WorkerContext, next: Next) => {
+  return async (ctx: Context, next: Next) => {
     if (ctx.execute) {
       const result = await ctx.execute(fn)
 
@@ -52,7 +51,7 @@ export function wrapper(fn: RunFn<unknown>) {
   }
 }
 
-function createLogger(ctx: WorkerContext) {
+function createLogger(ctx: Context) {
   return {
     log: (message: Record<string, any>) => {
       console.log(
@@ -65,10 +64,10 @@ function createLogger(ctx: WorkerContext) {
   }
 }
 
-async function main(ctx: WorkerContext) {
+async function main(ctx: Context) {
   const heartbeat = startHeartbeat()
 
-  const {entry, cwd} = ctx
+  const {entry, cwd, bundler, dist, limits} = ctx.meta
   let entryFile = join(cwd ?? '', entry)
 
   const logger = createLogger(ctx)
@@ -86,12 +85,12 @@ async function main(ctx: WorkerContext) {
     }
 
     // bundler
-    if (ctx.bundler?.enabled) {
+    if (bundler.enabled) {
       entryFile = await createBundle({
-        project: cwd!,
-        dist: ctx.dist,
+        project: cwd,
+        dist,
         entry,
-        cacheStrategy: ctx.bundler?.cache?.strategy ?? 'never',
+        cacheStrategy: bundler.cache?.strategy ?? 'never',
       })
     } else {
       //console.log(`[runtime] bundle stage skipped - disabled by config`)
@@ -138,7 +137,7 @@ async function main(ctx: WorkerContext) {
     // runtime
     const runtime = compose([...middleware, wrapper(mod.default)])
     const version = process.env.XGSD_WORKER_VERSION ?? 'unknown'
-    const {ttl, memory} = ctx.limits ?? {ttl: 1, memory: 1}
+    const {ttl, memory} = limits
 
     //console.log(`[runtime] started (version: ${version}, ttl: ${ttl?.toFixed(2)} ms, memory: ${memory}MB)`)
 

@@ -20,3 +20,5 @@ coverage/*
 runs/*
 
 test.js
+
+api/*

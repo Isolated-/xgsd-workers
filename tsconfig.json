@@ -10,5 +10,5 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true
   },
-  "exclude": ["jest.config.ts"]
+  "exclude": ["jest.config.ts", "tsup.config.ts"]
 }

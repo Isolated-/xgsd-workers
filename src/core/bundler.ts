@@ -1,7 +1,7 @@
 import {createHash, timingSafeEqual} from 'crypto'
 import path, {join, relative, sep} from 'path'
 import {readdir, readFile, stat} from 'fs/promises'
-import {pathExistsSync, readJsonSync, writeJsonSync} from './util/fs'
+import {pathExistsSync, readJsonSync, writeJsonSync} from '../util/fs'
 import {createRequire} from 'module'
 
 export async function createBundle({

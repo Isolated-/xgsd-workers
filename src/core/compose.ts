@@ -1,14 +1,14 @@
 import {resolveDependency} from './bundler'
-import {WorkerContext, WorkerResult} from './types'
+import {Context, WorkerResult} from './types'
 
 export type Next = () => Promise<void>
 
-export type Middleware = (ctx: WorkerContext, next: Next) => Promise<void>
+export type Middleware = (ctx: Context, next: Next) => Promise<void>
 
-export type ComposedMiddleware = (ctx: WorkerContext) => Promise<WorkerResult<unknown>>
+export type ComposedMiddleware = (ctx: Context) => Promise<WorkerResult<unknown>>
 
 export function compose(middleware: Middleware[]): ComposedMiddleware {
-  return async function run(ctx: WorkerContext): Promise<WorkerResult<unknown>> {
+  return async function run(ctx: Context): Promise<WorkerResult<unknown>> {
     let index = -1
 
     let res: any = {
@@ -19,7 +19,7 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
       duration: undefined,
     }
 
-    const {execute} = resolveDependency('@xgsd/engine', ctx.cwd!)
+    const {execute} = resolveDependency('@xgsd/engine', ctx.meta.cwd)
 
     async function dispatch(i: number): Promise<void> {
       if (i <= index) {
@@ -34,7 +34,7 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
         return
       }
 
-      const executeWrapper = async (ctx: WorkerContext) => {
+      const executeWrapper = async (ctx: Context) => {
         await fn(ctx, async () => {
           await dispatch(i + 1)
         })
@@ -46,12 +46,10 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
 
       if (result.error || result.data?.error) {
         res.ok = false
-        res.code = ctx.code
         res.result = null
         res.error = result.error ?? result.data?.error
       } else {
         res.ok = true
-        res.code = ctx.code
         res.result = result.data?.result ?? null
         res.error = null
       }
