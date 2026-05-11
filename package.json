@@ -39,15 +39,14 @@
     "vitest": "^4.1.5"
   },
   "peerDependencies": {
-    "@xgsd/engine": "^1.0.0-stable",
     "esbuild": "^0.28.0"
   },
   "peerDependenciesMeta": {
     "esbuild": {
       "optional": false
-    },
-    "@xgsd/engine": {
-      "optional": false
     }
+  },
+  "dependencies": {
+    "@xgsd/engine": "1.0.0-stable"
   }
 }

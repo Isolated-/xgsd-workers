@@ -1238,6 +1238,11 @@
     convert-source-map "^2.0.0"
     tinyrainbow "^3.1.0"
 
+"@xgsd/engine@^1.0.0-stable":
+  version "1.0.0-stable"
+  resolved "https://registry.yarnpkg.com/@xgsd/engine/-/engine-1.0.0-stable.tgz#a7c2b121a9572f7c23297d588ceb569fc6eb71ca"
+  integrity sha512-dUzQjUfMsY5KjomWMHZMSZTxwTNQUMKj7T6jpkjs4rroRYXXM0GF7O6kUoIf+3qiBhAmbYoGsL1QMRflOdASjA==
+
 acorn-walk@^8.1.1:
   version "8.3.5"
   resolved "https://registry.yarnpkg.com/acorn-walk/-/acorn-walk-8.3.5.tgz#8a6b8ca8fc5b34685af15dabb44118663c296496"

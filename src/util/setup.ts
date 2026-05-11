@@ -18,7 +18,8 @@ type SetupOpts = {
 }
 
 export function completeWorkerSetupFromConfig(opts: SetupOpts) {
-  const dist = join(opts.cwd, opts.config?.dist ?? DEFAULTS.distPathRelative)
+  const defaultPath = DEFAULTS.distPathRelative
+  const dist = join(opts.cwd, opts.config?.dist ?? defaultPath)
   const ctx: Context = {
     id: opts.id ?? randomUUID(),
     data: opts.data,

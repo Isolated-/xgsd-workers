@@ -1,5 +1,6 @@
 import {join} from 'path'
-import {createBundle, resolveDependency} from '../core/bundler.js'
+import {createBundle} from '../core/bundler.js'
+import {execute, SourceData} from '@xgsd/engine'
 import {compose, Next} from '../core/compose.js'
 import {Context, WorkerError, WorkerErrorCode} from '../core/types.js'
 import {pathExists} from '../util/fs.js'
@@ -10,8 +11,6 @@ export type RunFn<T> = (data: T) => Promise<any>
 const logger = createLogger()
 
 const ctx = JSON.parse(process.env.XGSD_CTX ?? '') as Context
-const {execute} = resolveDependency('@xgsd/engine', ctx.meta.cwd)
-
 function dispatch(event: 'ALIVE' | 'DONE' | 'ERROR', payload: any) {
   process.send?.({
     type: event,
@@ -62,7 +61,7 @@ export function wrapper(fn: RunFn<unknown>) {
     } else {
       // dont send context into worker
       // middleware can be used for that
-      const {data, error} = await execute(ctx.data, fn)
+      const {data, error} = await execute(ctx.data as SourceData, fn)
 
       ctx.result = data
       ctx.error = error

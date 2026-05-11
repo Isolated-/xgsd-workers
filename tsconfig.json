@@ -12,5 +12,5 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true
   },
-  "exclude": ["vitest.config.ts", "tsup.config.ts"]
+  "exclude": ["vitest.config.ts", "tsup.config.ts", "fixtures", "tests"]
 }

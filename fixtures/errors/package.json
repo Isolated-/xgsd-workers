@@ -1,7 +1,6 @@
 {
   "type": "module",
   "dependencies": {
-    "@xgsd/engine": "^1.0.0-stable",
     "@xgsd/workers": "^0.1.2"
   }
 }

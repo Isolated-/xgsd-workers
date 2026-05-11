@@ -7,6 +7,7 @@ export const DEFAULTS = {
   },
   bundler: {
     enabled: false,
+    include: ['worker.js'],
   },
   output: {
     mode: 'wrapped' as WorkerOutputMode,
@@ -14,4 +15,4 @@ export const DEFAULTS = {
   signalPathRelative: 'signals.jsonl',
   distPathRelative: '.xgsd',
   entryFileRelative: 'worker.js',
-} as const
+}

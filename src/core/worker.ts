@@ -149,6 +149,7 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
 function resolveProcessPath() {
   const isTest = process.env.XGSD_NODE_ENV === 'test'
 
+  // this is so brittle
   const path = fileURLToPath(
     new URL(isTest ? '../../dist/process/workers.process.js' : '../dist/process/workers.process.js', import.meta.url),
   )
