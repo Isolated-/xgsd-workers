@@ -42,8 +42,9 @@ jobs:
       # ----------------------------
       # Setup fixtures
       # ----------------------------
-      - run: yarn build
       - run: yarn install --frozen-lockfile
+
+      - run: yarn build
 
       - name: combined fixtures
         working-directory: ./fixtures/combined
