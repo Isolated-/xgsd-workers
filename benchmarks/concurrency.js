@@ -3,7 +3,7 @@
 import {mkdirSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {performance} from 'node:perf_hooks'
-
+import {runWithConcurrency} from '@xgsd/engine'
 import {createHandler} from '@xgsd/workers'
 
 const ACTIVATIONS = Number(process.env.ACTIVATIONS ?? 10000)
@@ -13,32 +13,15 @@ function formatMB(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(2)}MB`
 }
 
-async function runWithConcurrency(items, limit, worker) {
-  const executing = []
-
-  for (let i = 0; i < items.length; i++) {
-    const p = worker(items[i], items[i + 1], i)
-
-    const e = p.then(() => {
-      executing.splice(executing.indexOf(e), 1)
-    })
-
-    executing.push(e)
-
-    if (executing.length >= limit) {
-      await Promise.race(executing)
-    }
-  }
-
-  await Promise.all(executing)
-}
-
 const stream = {
   write() {},
 }
 
 const handler = createHandler({
   cwd: process.cwd(),
+  config: {
+    entry: join('benchmarks', 'worker.js'),
+  },
   stream,
 })
 
