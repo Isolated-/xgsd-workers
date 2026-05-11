@@ -1,15 +1,18 @@
 import {Writable} from 'stream'
-import {WorkerConfig, WorkerErrorCode, ActivationHandler, WorkerResult} from './core/types.js'
+import {WorkerConfig, WorkerErrorCode, ActivationHandler, WorkerResult, Activation} from './core/types.js'
 import {runWorker} from './core/worker.js'
 import {completeWorkerSetupFromConfig} from './util/setup.js'
 import {formatWorkerResult} from './util/format.js'
 import {pathExistsSync} from './util/fs.js'
 import {WorkerError} from './core/types.js'
+import {readFileSync} from 'fs'
+import {join} from 'path'
 
 export {runWorker}
 export * from './core/types.js'
 
-import packageJson from '../package.json' with {type: 'json'}
+const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+
 export const version = packageJson.version
 
 type CreateHandlerOpts = {
@@ -38,17 +41,17 @@ export function createHandler(opts?: CreateHandlerOpts): ActivationHandler {
 
     const {ctx, signal} = completeWorkerSetupFromConfig({
       id: activation?.id,
-      cwd: activation?.cwd ?? cwd,
+      cwd: activation?.cwd ?? cwd!,
       data: activation?.data!,
       env: activation?.env,
       config: validated,
       stream,
     })
 
-    if (!pathExistsSync(ctx.meta.entry)) {
+    if (!pathExistsSync(join(ctx.meta.cwd, ctx.meta.entry))) {
       const err: WorkerError = {
         code: WorkerErrorCode.CODE_INVALID_ENTRY_FILE,
-        message: `entry file does not exist`,
+        message: `entry file "${ctx.meta.entry}" does not exist`,
         type: 'user',
       }
 

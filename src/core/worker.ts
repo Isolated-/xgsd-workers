@@ -146,6 +146,16 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
   })
 }
 
+function resolveProcessPath() {
+  const isTest = process.env.XGSD_NODE_ENV === 'test'
+
+  const path = fileURLToPath(
+    new URL(isTest ? '../../dist/process/workers.process.js' : '../dist/process/workers.process.js', import.meta.url),
+  )
+
+  return path
+}
+
 export async function runWorker<T>(opts: {ctx: Context<T>; signal: SignalContext}) {
   const start = performance.now()
   const {ctx, signal} = opts
@@ -153,7 +163,7 @@ export async function runWorker<T>(opts: {ctx: Context<T>; signal: SignalContext
   signal.emit({type: 'system', message: 'starting container'})
 
   // TODO: remove hardcoded worker path
-  const path = fileURLToPath(new URL('../dist/process/workers.process.js', import.meta.url))
+  const path = resolveProcessPath()
   const child = fork(path, {
     stdio: ['inherit', 'pipe', 'pipe', 'ipc'],
     // hard limit results in V8 errors

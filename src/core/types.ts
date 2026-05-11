@@ -130,7 +130,7 @@ export type Activation<T = unknown> = {
   cwd: string
 }
 
-export type ActivationHandler = <T = unknown>(activation: Activation<T>) => Promise<WorkerResult<T>>
+export type ActivationHandler = <T = unknown>(activation?: Activation<T>) => Promise<WorkerResult<T>>
 
 /**
  *  SIGNAL TYPES

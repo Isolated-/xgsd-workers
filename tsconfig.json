@@ -1,12 +1,14 @@
 {
   "compilerOptions": {
     "module": "nodenext",
+    "moduleResolution": "nodenext",
     "target": "es2022",
     "strict": true,
     "rootDir": "./src",
     "outDir": "dist",
     "types": ["jest", "node"],
     "declaration": true,
+    "allowImportingTsExtensions": false,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true
   },
