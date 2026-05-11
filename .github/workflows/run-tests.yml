@@ -38,6 +38,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-fixtures-node-modules-
 
+      - run: yarn install --frozen-lockfile
+      - run: yarn build
+
       # ----------------------------
       # Setup fixtures
       # ----------------------------
@@ -45,10 +48,15 @@ jobs:
         working-directory: ./fixtures/combined
         run: yarn install --frozen-lockfile --production
 
+      - name: middleware fixtures
+        working-directory: ./fixtures/middleware
+        run: yarn install --frozen-lockfile --production
+
+      - name: bad fixtures
+        working-directory: ./fixtures/bad
+        run: yarn install --frozen-lockfile --production
+
       # ----------------------------
       # Main project install + build
       # ----------------------------
-
-      - run: yarn install --frozen-lockfile
-      - run: yarn build
       - run: yarn test
