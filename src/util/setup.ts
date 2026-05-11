@@ -18,24 +18,17 @@ type SetupOpts = {
 }
 
 export function completeWorkerSetupFromConfig(opts: SetupOpts) {
-  const defaultPath = DEFAULTS.distPathRelative
-  const dist = join(opts.cwd, opts.config?.dist ?? defaultPath)
   const ctx: Context = {
     id: opts.id ?? randomUUID(),
     data: opts.data,
     env: opts.env ?? null,
     meta: {
       cwd: opts.cwd,
-      dist,
       version: version,
       entry: opts.config?.entry ?? DEFAULTS.entryFileRelative,
       limits: {
         ...DEFAULTS.limits,
         ...opts.config?.limits,
-      },
-      bundler: {
-        ...DEFAULTS.bundler,
-        ...opts.config?.bundler,
       },
       output: {
         ...DEFAULTS.output,
@@ -44,7 +37,7 @@ export function completeWorkerSetupFromConfig(opts: SetupOpts) {
     },
   }
 
-  const stream = opts.stream ?? createWriteStream(join(dist, DEFAULTS.signalPathRelative), {flags: 'a'})
+  const stream = opts.stream ?? process.stdout
 
   const signal = createSignalContext({
     ctx,

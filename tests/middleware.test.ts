@@ -3,7 +3,8 @@ import {describe, test, expect} from 'vitest'
 import {join} from 'path'
 import {completeWorkerSetupFromConfig} from '../src/util/setup.js'
 
-const createTestEnvironment = (fixture: string, config?: any) => {
+// these will be made generic and extracted to @xgsd/test
+export const createTestEnvironment = (fixture: string, config?: any) => {
   const cwd = config?.cwd ?? join(process.cwd(), 'fixtures', 'combined')
   return completeWorkerSetupFromConfig({
     cwd,
@@ -11,7 +12,18 @@ const createTestEnvironment = (fixture: string, config?: any) => {
       ...config,
       entry: fixture,
     },
+    stream: createFakeStream(),
   })
+}
+
+export const createFakeStream = () => {
+  let messages: any[] = []
+  return {
+    write: (chunk: string) => {
+      messages.push(JSON.parse(chunk))
+    },
+    getMessages: () => messages,
+  } as any
 }
 
 describe('middleware tests', () => {
