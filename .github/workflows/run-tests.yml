@@ -56,6 +56,14 @@ jobs:
         working-directory: ./fixtures/typescript
         run: yarn install --frozen-lockfile --production
 
+      - name: middleware fixtures
+        working-directory: ./fixtures/middleware
+        run: yarn install --frozen-lockfile --production
+
+      - name: bad fixtures
+        working-directory: ./fixtures/bad
+        run: yarn install --frozen-lockfile --production
+
       # ----------------------------
       # Main project install + build
       # ----------------------------
