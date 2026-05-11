@@ -42,16 +42,8 @@ jobs:
       # ----------------------------
       # Setup fixtures
       # ----------------------------
-      - name: benchmark fixtures
-        working-directory: ./fixtures/benchmark
-        run: yarn install --frozen-lockfile --production
-
-      - name: error fixtures
-        working-directory: ./fixtures/errors
-        run: yarn install --frozen-lockfile --production
-
-      - name: typescript fixtures
-        working-directory: ./fixtures/typescript
+      - name: combined fixtures
+        working-directory: ./fixtures/combined
         run: yarn install --frozen-lockfile --production
 
       # ----------------------------

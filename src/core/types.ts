@@ -6,6 +6,10 @@ export enum WorkerErrorCode {
   // thrown when limits exceeded (ttl/memory)
   CODE_WORKER_GUARD = 'CODE_WORKER_GUARD',
 
+  // generic - something went really really wrong
+  CODE_FATAL_ERROR = 'CODE_FATAL_ERROR',
+
+  // config errors
   CODE_INVALID_CONFIG = 'CODE_INVALID_CONFIG',
 
   // thrown when entry file is invalid/cannot be parsed
@@ -24,6 +28,7 @@ export type WorkerErrorType = 'user' | 'system' | 'unknown'
 export type WorkerError = {
   code?: WorkerErrorCode
   message?: string
+  stack?: string
   type?: WorkerErrorType
 }
 

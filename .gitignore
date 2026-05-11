@@ -25,3 +25,5 @@ docs/*
 
 fixtures/**/.xgsd
 fixtures/**/node_modules
+fixtures/**/.benchmark
+fixtures/**/.typescript

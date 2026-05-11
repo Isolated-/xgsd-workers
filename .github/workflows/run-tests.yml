@@ -33,9 +33,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            fixtures/benchmark/node_modules
-            fixtures/errors/node_modules
-            fixtures/typescript/node_modules
+            fixtures/combined/node_modules
           key: ${{ runner.os }}-fixtures-node-modules-${{ hashFiles('fixtures/**/package.json', 'fixtures/**/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-fixtures-node-modules-
@@ -46,17 +44,8 @@ jobs:
       # ----------------------------
       # Setup fixtures
       # ----------------------------
-
-      - name: benchmark fixtures
-        working-directory: ./fixtures/benchmark
-        run: yarn install --frozen-lockfile --production
-
-      - name: error fixtures
-        working-directory: ./fixtures/errors
-        run: yarn install --frozen-lockfile --production
-
-      - name: typescript fixtures
-        working-directory: ./fixtures/typescript
+      - name: combined fixtures
+        working-directory: ./fixtures/combined
         run: yarn install --frozen-lockfile --production
 
       - name: middleware fixtures

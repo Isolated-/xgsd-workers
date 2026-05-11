@@ -1,4 +1,6 @@
-export function createLogger(stream?: Writable) {
+export function createLogger(s?: Writable) {
+  const stream = s ?? process.stdout
+
   return {
     log: (message: string, meta?: Record<string, unknown>) => {
       stream.write(JSON.stringify({__sys: true, type: 'system', message, meta}) + '\n')
