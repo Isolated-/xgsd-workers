@@ -6,6 +6,8 @@ import {pathExists} from '../util/fs'
 
 export type RunFn<T> = (data: T) => Promise<any>
 
+const logger = createLogger()
+
 const ctx = JSON.parse(process.env.XGSD_CTX ?? '') as Context
 const {execute} = resolveDependency('@xgsd/engine', ctx.meta.cwd)
 
@@ -15,6 +17,15 @@ function dispatch(event: 'ALIVE' | 'DONE' | 'ERROR', payload: any) {
     ...payload,
   })
 }
+
+process.on('exit', (code: number) => {
+  if (code !== 0) {
+    logger.warn(`container ${process.pid} exited with non-zero code ${code}.`, {code, pid: process.pid})
+    return
+  }
+
+  logger.log('container exited gracefully', {pid: process.pid})
+})
 
 function startHeartbeat(interval = 50) {
   return setInterval(() => {
@@ -51,13 +62,25 @@ export function wrapper(fn: RunFn<unknown>) {
   }
 }
 
-function createLogger(ctx: Context) {
+export function createLogger() {
   return {
-    log: (message: Record<string, any>) => {
+    log: (message: string, meta?: Record<string, unknown>) => {
       console.log(
         JSON.stringify({
-          type: 'log',
-          ...message,
+          __sys: true,
+          type: 'system',
+          message: message,
+          meta,
+        }),
+      )
+    },
+    warn: (message: string, meta?: Record<string, unknown>) => {
+      console.log(
+        JSON.stringify({
+          __sys: true,
+          type: 'warn',
+          message: message,
+          meta,
         }),
       )
     },
@@ -70,7 +93,7 @@ async function main(ctx: Context) {
   const {entry, cwd, bundler, dist, limits} = ctx.meta
   let entryFile = join(cwd ?? '', entry)
 
-  const logger = createLogger(ctx)
+  logger.log(`container started (pid: ${process.pid})`, {stage: 'runtime', pid: process.pid})
 
   try {
     if (!(await pathExists(entryFile))) {
@@ -93,8 +116,7 @@ async function main(ctx: Context) {
         cacheStrategy: bundler.cache?.strategy ?? 'never',
       })
     } else {
-      //console.log(`[runtime] bundle stage skipped - disabled by config`)
-      logger.log({stage: 'bundle', message: 'bundler is disabled, enabled it with `bundler.enabled` = true'})
+      logger.warn(`bundler is disabled`, {stage: 'bundler', hint: 'enable with bundler.enabled = true'})
     }
 
     let mod = undefined
@@ -130,8 +152,8 @@ async function main(ctx: Context) {
         return
       }
 
-      const dt = (performance.now() - start).toFixed(2)
-      logger.log({stage: 'middleware', message: `loaded ${middleware.length} middleware functions`, dt})
+      const dt = performance.now() - start
+      logger.log(`loaded ${middleware.length} middleware functions`, {stage: 'middleware', duration: dt})
     }
 
     // runtime
@@ -139,9 +161,12 @@ async function main(ctx: Context) {
     const version = process.env.XGSD_WORKER_VERSION ?? 'unknown'
     const {ttl, memory} = limits
 
-    //console.log(`[runtime] started (version: ${version}, ttl: ${ttl?.toFixed(2)} ms, memory: ${memory}MB)`)
-
-    logger.log({stage: 'runtime', status: 'start', version, ttl, memory, ctx: ctx.id})
+    logger.log(`worker running with version ${version} (ttl: ${ttl}, memory: ${memory})`, {
+      stage: 'runtime',
+      version,
+      ttl,
+      memory,
+    })
 
     const start = performance.now()
 
@@ -149,13 +174,11 @@ async function main(ctx: Context) {
 
     const ms = performance.now() - start
 
-    logger.log({stage: 'runtime', status: 'end', message: 'finished', ms, version, ttl, memory, ctx: ctx.id})
+    logger.log(`worker finished in ${ms.toFixed(2)} ms`, {stage: 'runtime', version, duration: ms})
 
     if (result.error) {
-      logger.log({
-        type: 'warn',
+      logger.warn(`worker finished with errors (${ctx.error?.code ?? ctx.error?.message ?? 'unknown'})`, {
         stage: 'runtime',
-        message: `finished with errors`,
         error: ctx.error?.message ?? 'unknown',
       })
     }

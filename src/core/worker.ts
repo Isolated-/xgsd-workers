@@ -1,189 +1,177 @@
 import {fork} from 'child_process'
 import {join} from 'path'
 import {Context, WorkerError, WorkerErrorCode, WorkerResult} from './types.js'
-import {SignalContext} from './signal.js'
+import {createSignalLogger, SignalContext} from './signal.js'
 import {formatWorkerResult} from '../util/format.js'
+import {ensureDirSync, pathExistsSync} from '../util/fs.js'
+import {mkdirSync} from 'fs'
 
-type ChildMessage<T> =
+type ChildMessage<T = unknown> =
   | {type: 'ALIVE'; error: undefined; result: undefined}
   | {type: 'DONE'; result: WorkerResult<T>; error: undefined | null}
   | {type: 'ERROR'; result: undefined | null; error: WorkerError}
 
-export async function runWorker<T>(opts: {ctx: Context; signal: SignalContext}): Promise<WorkerResult<T>> {
-  const start = performance.now()
-  const {ctx, signal} = opts
+function isCoreSignal(object: Record<string, any>) {
+  return object.__sys || (object.type && object.message && object.meta)
+}
 
-  return new Promise(async (resolve) => {
-    signal.emit({
-      type: 'generic',
-      message: 'system test',
-      meta: {
-        someKey: true,
-      },
-    })
+function collector(signal: SignalContext, type: 'stdout' | 'stderr') {
+  return (chunk: any) => {
+    const lines = chunk.toString().split('\n').filter(Boolean)
 
-    let started = false
-    let completed = false
-    let res: WorkerResult<unknown>
+    for (const line of lines) {
+      try {
+        const json = JSON.parse(line)
 
-    const contextStr = JSON.stringify(ctx)
-
-    // dont do this - ensure defaults are already set
-    // by this point
-    /*    const {ttl = 1000, memory = 64} = ctx.limits ?? {}
-
-    ctx.limits = {
-      ttl: ctx.limits?.ttl ?? ttl,
-      memory: ctx.limits?.memory ?? memory,
-    }*/
-
-    // TODO: remove hardcoded worker path
-    const child = fork(join(__dirname, 'process', 'workers.process.js'), {
-      stdio: ['inherit', 'pipe', 'pipe', 'ipc'],
-      // hard limit results in V8 errors
-      // so use carefully
-      execArgv: [`--max-old-space-size=512`],
-      env: {
-        ...ctx.env,
-        XGSD_WORKER_VERSION: ctx.meta.version,
-        XGSD_CTX: contextStr,
-      },
-    })
-
-    const startGuard = () => {
-      startWorkerGuard(child, {ttl: 1000, memory: 64}, (reason: string) => {
-        if (completed) return
-
-        // normalise system/watch dog error
-        // then *reject*
-        const err: WorkerError = {
-          code: WorkerErrorCode.CODE_WORKER_GUARD,
-          message: `${reason}`,
-          type: 'system',
+        // core signals = __sys or structured logs
+        // sent by usercode/child process
+        if (isCoreSignal(json)) {
+          signal.emit(json)
+        } else {
+          // unstructured json logs are wrapped as generic
+          // allowing users to define their own structure
+          signal.emit({
+            type: 'generic',
+            message: json.message ?? 'generic',
+            meta: json,
+          })
         }
-
-        console.warn(`[guard] worker suspended (reason: ${reason})`)
-
-        /*signal.emit({
-          type: 'log',
-          stage: 'guard',
-          message: `worker suspended, reason: ${reason}`,
-        })*/
-
-        /*signal.emit({
-          type: 'error',
-          guard: true,
-          code: WorkerErrorCode.CODE_WORKER_GUARD,
-          message: err.message!,
-        })*/
-
-        //activationCollector.emit({ok: false, error: err.message!, version, duration: ttl})
-        //activationWrapper.emit({ok: false, error: err.message!, version, duration: ttl})
-
-        cleanup()
-
-        resolve(formatWorkerResult({error: err, duration: performance.now() - start}))
-      })
+      } catch {
+        // fallback
+        signal.emit({
+          type: type === 'stderr' ? 'error' : 'log',
+          message: line,
+        })
+      }
     }
+  }
+}
+
+function containerManager(opts: {child: any; signal: SignalContext; ctx: Context; start: number}) {
+  const {child, signal, ctx, start} = opts
+
+  return new Promise((resolve, reject) => {
+    const logger = createSignalLogger(signal)
+    logger.system('container manager started')
+
+    ensureDirSync(ctx.meta.dist)
+    logger.system(`found dist`, {dist: ctx.meta.dist})
+
+    let completed = false
 
     const cleanup = () => {
       if (child.connected) {
+        logger.system('disconnecting container')
+
         child.removeAllListeners('message')
 
         child.disconnect()
       }
     }
 
-    function collector(type: 'stdout' | 'stderr') {
-      return (chunk: any) => {
-        const lines = chunk.toString().split('\n').filter(Boolean)
+    // collect stdout/err logs -> Signals
+    child.stdout?.on('data', collector(signal, 'stdout'))
+    child.stderr?.on('data', collector(signal, 'stderr'))
 
-        for (const line of lines) {
-          try {
-            signal.emit(JSON.parse(line))
-          } catch {
-            // fallback
-            signal.emit({
-              type: type === 'stderr' ? 'error' : 'log',
-              message: line,
-            })
-          }
-        }
-      }
+    const startGuard = () => {
+      const opts = {child, limits: ctx.meta.limits, signal}
+      logger.system('worker guard started')
+
+      startWorkerGuard(opts, (reason) => {
+        if (completed) return
+
+        const duration = performance.now() - start
+        logger.activation('worker guard suspended activation', {
+          version: ctx.meta.version,
+          ok: false,
+          error: reason.message,
+          duration,
+        })
+
+        cleanup()
+        resolve(formatWorkerResult({error: reason, duration}))
+      })
     }
 
-    // collect stdout/err logs -> Signals
-    child.stdout?.on('data', collector('stdout'))
-    child.stderr?.on('data', collector('stderr'))
+    startGuard()
 
-    child.on('message', (msg: ChildMessage<unknown>) => {
-      if (msg.type !== 'ALIVE' && msg.type !== 'DONE' && msg.type !== 'ERROR') return
-
-      if (msg.type === 'ALIVE') {
-        if (!started) {
-          started = true
-          startGuard()
-        }
-        return
-      }
-
-      if (msg.type === 'ERROR') {
-        const {error} = msg
-
-        res = formatWorkerResult({error, duration: performance.now() - start})
-      }
-
-      if (msg.type === 'DONE') {
-        // do something with result
-        res = msg.result
-      }
-
-      res.duration = performance.now() - start
-
-      /*      activationWrapper.emit({
-        version,
-        limits: {ttl, memory},
-        ok: res.ok,
-        duration: res.duration,
-        error: res.error?.code ?? res.error?.message,
-      })*/
-
-      signal.emit({
-        type: 'activation',
-        message: 'activation',
-        meta: {
-          version: ctx.meta.version,
-          ok: res.ok,
-          //limits: {ttl, memory},
-          duration: res.duration,
-          error: res.error?.code ?? res.error?.message ?? null,
-        },
+    function fatal(msg: ChildMessage) {
+      logger.activation('fatal', {
+        version: ctx.meta.version,
+        ok: false,
+        error: msg.error?.code ?? msg.error?.message ?? 'unknown',
+        duration: performance.now() - start,
       })
 
-      completed = true
+      reject(msg.error)
+      cleanup()
+    }
 
-      /*if (ctx.output?.mode === 'raw') {
-        resolve(res.result ?? (res.error as any))
+    function finish(msg: ChildMessage) {
+      const {result} = msg
+      const duration = performance.now() - start
+
+      // TODO: this should always be the final signal sent
+      // move it outside of this function eventually
+      logger.activation(`activation completed in ${duration.toFixed(2)} ms`, {
+        version: ctx.meta.version,
+        ok: true,
+        error: null,
+        duration,
+      })
+
+      // normal errors are wrapped inside the process
+      if (ctx.meta.output.mode === 'raw') {
+        resolve(result?.result)
       } else {
-        resolve(res as any)
-      }*/
-
-      resolve(res as WorkerResult<any>)
+        resolve(result)
+      }
 
       cleanup()
+    }
+
+    child.on('message', (msg: ChildMessage) => {
+      if (msg.type === 'ALIVE') return
+      if (msg.type === 'DONE') return finish(msg)
+      if (msg.type === 'ERROR') return fatal(msg)
+
+      logger.warn(`unknown message type ${(msg as any).type}0`)
     })
   })
 }
 
-function startWorkerGuard(
-  child: any,
-  opts: {
-    ttl: number
-    memory: number
-  },
-  suspended?: (reason: string) => void,
-) {
-  const {ttl, memory} = opts
+export async function runWorker<T>(opts: {ctx: Context<T>; signal: SignalContext}) {
+  const start = performance.now()
+  const {ctx, signal} = opts
+
+  signal.emit({type: 'system', message: 'starting container'})
+
+  // TODO: remove hardcoded worker path
+  const path = join(__dirname, 'process', 'workers.process.js')
+  const child = fork(path, {
+    stdio: ['inherit', 'pipe', 'pipe', 'ipc'],
+    // hard limit results in V8 errors
+    // so use carefully
+    execArgv: [`--max-old-space-size=512`],
+    env: {
+      ...ctx.env,
+      XGSD_WORKER_VERSION: ctx.meta.version,
+      XGSD_CTX: JSON.stringify(ctx),
+    },
+  })
+
+  return containerManager({child, signal, ctx, start})
+}
+
+type WorkerGuardOpts = {
+  signal: SignalContext
+  child: any
+  limits: {ttl: number; memory: number}
+}
+
+function startWorkerGuard(opts: WorkerGuardOpts, suspended?: (reason: WorkerError) => void) {
+  const {child, signal} = opts
+  const {ttl, memory} = opts.limits
 
   let ttlTimer: NodeJS.Timeout | null = null
   let killed = false
@@ -195,7 +183,20 @@ function startWorkerGuard(
     if (ttlTimer) clearTimeout(ttlTimer)
 
     child.kill('SIGKILL')
-    suspended?.(reason)
+
+    const err: WorkerError = {
+      code: WorkerErrorCode.CODE_WORKER_GUARD,
+      message: reason,
+      type: 'system',
+    }
+
+    signal.emit({
+      type: 'error',
+      message: `process killed ${reason}`,
+      meta: {...err, guard: true},
+    })
+
+    suspended?.(err)
   }
 
   // TTL watchdog
