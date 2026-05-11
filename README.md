@@ -54,4 +54,15 @@ async function callback(req, res) {
 
 ## Testing
 
-TBD
+Setup fixtures:
+
+```bash
+chmod +x ./install.sh
+./install.sh
+```
+
+Run all tests with:
+
+```bash
+yarn test
+```
