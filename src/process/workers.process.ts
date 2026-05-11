@@ -52,7 +52,9 @@ export function wrapper(fn: RunFn<unknown>) {
       ctx.result = result.data
       ctx.error = result.error
     } else {
-      const {data, error} = await execute(ctx as any, fn)
+      // dont send context into worker
+      // middleware can be used for that
+      const {data, error} = await execute(ctx.data, fn)
 
       ctx.result = data
       ctx.error = error
