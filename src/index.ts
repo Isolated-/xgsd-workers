@@ -3,6 +3,8 @@ import {WorkerConfig, WorkerErrorCode, ActivationHandler, WorkerResult} from './
 import {runWorker} from './core/worker.js'
 import {completeWorkerSetupFromConfig} from './util/setup.js'
 import {formatWorkerResult} from './util/format.js'
+import {pathExistsSync} from './util/fs.js'
+import {WorkerError} from './core/types.js'
 
 export {runWorker}
 export * from './core/types.js'
@@ -39,6 +41,16 @@ export function createHandler(opts?: CreateHandlerOpts): ActivationHandler {
       config: validated,
       stream,
     })
+
+    if (!pathExistsSync(ctx.meta.entry)) {
+      const err: WorkerError = {
+        code: WorkerErrorCode.CODE_INVALID_ENTRY_FILE,
+        message: `entry file does not exist`,
+        type: 'user',
+      }
+
+      throw err
+    }
 
     return runWorker({ctx, signal}) as Promise<WorkerResult<unknown>>
   }
