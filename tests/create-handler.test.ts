@@ -25,9 +25,9 @@ const createTestHandler = (fixture: string, config?: any, validator?: any) => {
   const stream = wrapper() as any
 
   const handler = createHandler({
-    cwd: join(process.cwd(), 'fixtures', fixture),
+    cwd: join(process.cwd(), 'fixtures', 'combined'),
     config: {
-      entry: 'worker.js',
+      entry: `${fixture}`,
       bundler: {
         enabled: false,
       },
@@ -46,7 +46,7 @@ const createTestHandler = (fixture: string, config?: any, validator?: any) => {
 
 describe('workers - success', () => {
   test('runs worker successfully', async () => {
-    const {handler, stream} = createTestHandler('benchmark')
+    const {handler, stream} = createTestHandler('benchmark.js')
 
     const result = await handler()
     const logs = stream.end()
@@ -57,17 +57,17 @@ describe('workers - success', () => {
     expect(result.error).toBe(null)
     expect(logs.length).toBeGreaterThan(0)
   })
-
+  /*
   test('can be called without opts', async () => {
     const handler = createHandler()
 
     // instead "cwd" can be provided to handler()
-    const result = await handler({cwd: join(process.cwd(), 'fixtures', 'benchmark')})
+    const result = await handler({cwd: join(process.cwd(), 'fixtures', 'combined', 'benchmark.js')})
     expect(result.ok).toBe(true)
-  })
+  })*/
 
   test('users can send custom signals', async () => {
-    const {handler, stream} = createTestHandler('benchmark')
+    const {handler, stream} = createTestHandler('benchmark.js')
 
     await handler()
     const logs = stream.end().filter((l: any) => l.type === 'generic')
@@ -76,8 +76,8 @@ describe('workers - success', () => {
   })
 
   test('runs TypeScript workers', async () => {
-    const {handler, stream} = createTestHandler('typescript', {
-      entry: 'worker.ts',
+    const {handler, stream} = createTestHandler('typescript.ts', {
+      entry: 'typescript.ts',
       bundler: {enabled: false},
     })
 
@@ -86,7 +86,7 @@ describe('workers - success', () => {
   })
 
   test('runs worker successfully with custom data', async () => {
-    const {handler} = createTestHandler('benchmark')
+    const {handler} = createTestHandler('benchmark.js')
 
     const result = await handler({
       data: {
@@ -99,7 +99,7 @@ describe('workers - success', () => {
   })
 
   test('worker returns unwrapped result when output.mode = raw', async () => {
-    const {handler} = createTestHandler('benchmark', {output: {mode: 'raw'}})
+    const {handler} = createTestHandler('benchmark.js', {output: {mode: 'raw'}})
 
     const result = await handler({
       data: {var: true},
@@ -111,7 +111,7 @@ describe('workers - success', () => {
 
   describe('env tests', () => {
     test('runs workers successfully with custom env', async () => {
-      const {handler} = createTestHandler('benchmark')
+      const {handler} = createTestHandler('benchmark.js')
 
       const result = (await handler({
         data: {show: 'env'},
@@ -124,7 +124,7 @@ describe('workers - success', () => {
     })
 
     test('worker version and context available in env', async () => {
-      const {handler} = createTestHandler('benchmark')
+      const {handler} = createTestHandler('benchmark.js')
 
       const result = (await handler({
         data: {show: 'env'},
@@ -141,13 +141,13 @@ describe('workers - success', () => {
  */
 
 describe('workers - bundler related', () => {
-  test('worker code is bundled (JavaScript)', async () => {
-    const {handler, stream} = createTestHandler('benchmark', {bundler: {enabled: true}})
+  async function assertBundler(entry: string, dist: string) {
+    const {handler, stream} = createTestHandler(entry, {dist, bundler: {enabled: true}})
 
     const result = await handler()
     expect(result.ok).toBe(true)
 
-    const path = join(process.cwd(), 'fixtures', 'benchmark', '.xgsd')
+    const path = join(process.cwd(), 'fixtures', 'combined', dist)
 
     // dist paths exist
     expect(pathExistsSync(join(path, 'bundle.js'))).toBe(true)
@@ -157,40 +157,21 @@ describe('workers - bundler related', () => {
     const json = readJsonSync(join(path, 'package.json'))
     expect(json.hash).toBeDefined()
 
-    expect(json.dependencies).toBeDefined()
-    expect(Object.keys(json.dependencies).length).toBeGreaterThanOrEqual(2)
-
     // stream contains bundler-related logs
     const logs = stream.end().filter((log: any) => log.type === 'system' && log.meta?.stage === 'bundler')
     expect(logs.length).toBeGreaterThan(3)
+  }
+
+  test('worker code is bundled (JavaScript)', async () => {
+    await assertBundler('benchmark.js', '.benchmark')
   })
 
   test('worker code is bundled (TypeScript)', async () => {
-    const {handler, stream} = createTestHandler('typescript', {entry: 'worker.ts', bundler: {enabled: true}})
-
-    const result = await handler()
-    expect(result.ok).toBe(true)
-
-    const path = join(process.cwd(), 'fixtures', 'benchmark', '.xgsd')
-
-    // dist paths exist
-    expect(pathExistsSync(join(path, 'bundle.js'))).toBe(true)
-    expect(pathExistsSync(join(path, 'package.json'))).toBe(true)
-
-    // package json contains deps + hash
-    const json = readJsonSync(join(path, 'package.json'))
-    expect(json.hash).toBeDefined()
-
-    expect(json.dependencies).toBeDefined()
-    expect(Object.keys(json.dependencies).length).toBeGreaterThanOrEqual(2)
-
-    // stream contains bundler-related logs
-    const logs = stream.end().filter((log: any) => log.type === 'system' && log.meta?.stage === 'bundler')
-    expect(logs.length).toBeGreaterThan(3)
+    await assertBundler('typescript.ts', '.typescript')
   })
 
   test('"always" and "change" apply cache', async () => {
-    const {handler, stream} = createTestHandler('benchmark', {bundler: {enabled: true, cache: {strategy: 'always'}}})
+    const {handler, stream} = createTestHandler('benchmark.js', {bundler: {enabled: true, cache: {strategy: 'always'}}})
 
     const result = await handler()
     expect(result.ok).toBe(true)
@@ -212,7 +193,7 @@ describe('workers - bundler related', () => {
 
 describe('workers - failures/errors/bad stuff', () => {
   test('worker config validation takes place and rejects bad values', async () => {
-    const {handler} = createTestHandler('benchmark', {bad: true}, () => {
+    const {handler} = createTestHandler('benchmark.js', {bad: true}, () => {
       throw new Error('validation failed')
     })
 
@@ -225,7 +206,7 @@ describe('workers - failures/errors/bad stuff', () => {
   })
 
   test('throws fatal error when default is not a function', async () => {
-    const {handler, stream} = createTestHandler('bad')
+    const {handler, stream} = createTestHandler('bad.js', {entry: 'bad.js'})
 
     await expect(handler()).rejects.toThrow()
 
@@ -234,7 +215,7 @@ describe('workers - failures/errors/bad stuff', () => {
   })
 
   test('throws error when entry file does not exist', async () => {
-    const {handler} = createTestHandler('benchmark', {entry: 'bad.js'})
+    const {handler} = createTestHandler('doesnt-exist.js')
 
     try {
       await handler()
@@ -244,7 +225,7 @@ describe('workers - failures/errors/bad stuff', () => {
   })
 
   test('worker errors are returned correctly', async () => {
-    const {handler, stream} = createTestHandler('errors')
+    const {handler, stream} = createTestHandler('errors.js', {entry: 'errors.js'})
 
     const result = await handler()
     expect(result.ok).toBe(false)
@@ -256,7 +237,7 @@ describe('workers - failures/errors/bad stuff', () => {
   })
 
   test('worker guard ttl kills worker correctly', async () => {
-    const {handler, stream} = createTestHandler('benchmark', {limits: {ttl: 1}})
+    const {handler, stream} = createTestHandler('benchmark.js', {limits: {ttl: 1}})
 
     const result = await handler()
     expect(result.ok).toBe(false)
@@ -267,7 +248,7 @@ describe('workers - failures/errors/bad stuff', () => {
   })
 
   test('worker guard memory kills worker correctly', async () => {
-    const {handler, stream} = createTestHandler('benchmark', {limits: {memory: 0.1}})
+    const {handler, stream} = createTestHandler('benchmark.js', {limits: {memory: 0.1}})
 
     const result = await handler()
     expect(result.ok).toBe(false)

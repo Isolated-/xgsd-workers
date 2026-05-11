@@ -1,6 +1,0 @@
-{
-  "type": "module",
-  "dependencies": {
-    "@xgsd/workers": "../../"
-  }
-}

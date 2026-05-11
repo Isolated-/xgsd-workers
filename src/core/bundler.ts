@@ -66,7 +66,7 @@ export async function createBundle({
     logger.log(`change detected - bundle.js will be rebuilt`, {stage: 'bundler', strategy: 'change', hint: 'none'})
   }
 
-  const dependencies = Object.entries(readJsonSync(packageJsonPath).dependencies).map((d) => d[0])
+  const dependencies = Object.entries(readJsonSync(packageJsonPath).dependencies ?? {}).map((d) => d[0])
   const generated = new Date().toISOString()
 
   // for now let esbuild notify of errors

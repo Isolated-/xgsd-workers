@@ -1,7 +1,0 @@
-{
-  "type": "module",
-  "dependencies": {
-    "@xgsd/workers": "../../",
-    "esbuild": "^0.28.0"
-  }
-}

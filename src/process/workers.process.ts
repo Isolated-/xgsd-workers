@@ -8,7 +8,8 @@ import {createLogger} from '../core/shared.js'
 
 export type RunFn<T> = (data: T) => Promise<any>
 
-const logger = createLogger()
+const stdout = createLogger(process.stdout)
+const stderr = createLogger(process.stderr)
 
 const ctx = JSON.parse(process.env.XGSD_CTX ?? '') as Context
 function dispatch(event: 'ALIVE' | 'DONE' | 'ERROR', payload: any) {
@@ -20,12 +21,32 @@ function dispatch(event: 'ALIVE' | 'DONE' | 'ERROR', payload: any) {
 
 process.on('exit', (code: number) => {
   if (code !== 0) {
-    logger.warn(`container ${process.pid} exited with non-zero code ${code}.`, {code, pid: process.pid})
+    stdout.warn(`container ${process.pid} exited with non-zero code ${code}.`, {code, pid: process.pid})
     return
   }
 
-  logger.log('container exited gracefully', {pid: process.pid})
+  stdout.log('container exited gracefully', {pid: process.pid})
 })
+
+export const rejectionHandler = () => {
+  const handler = (errorOrRejection: any) => {
+    const error = errorOrRejection instanceof Error ? errorOrRejection : null
+
+    const wrapped: WorkerError = {
+      code: WorkerErrorCode.CODE_FATAL_ERROR,
+      message: error?.message ?? 'uncaught exception',
+      type: 'unknown',
+      stack: error?.stack,
+    }
+
+    stderr.error(wrapped.message!, wrapped)
+
+    dispatch('ERROR', {error: wrapped})
+  }
+
+  process.on('uncaughtException', handler)
+  process.on('unhandledRejection', handler)
+}
 
 function startHeartbeat(interval = 50) {
   function pulse(memory: any) {
@@ -74,10 +95,12 @@ export function wrapper(fn: RunFn<unknown>) {
 async function main(ctx: Context) {
   const heartbeat = startHeartbeat()
 
+  rejectionHandler()
+
   const {entry, cwd, bundler, dist, limits} = ctx.meta
   let entryFile = join(cwd ?? '', entry)
 
-  logger.log(`container started (pid: ${process.pid})`, {stage: 'runtime', pid: process.pid})
+  stdout.log(`container started (pid: ${process.pid})`, {stage: 'runtime', pid: process.pid})
 
   try {
     if (!(await pathExists(entryFile))) {
@@ -86,6 +109,8 @@ async function main(ctx: Context) {
         message: 'entry file not found',
         type: 'user',
       }
+
+      stderr.error(error.message!, error)
 
       dispatch('ERROR', {error})
       return
@@ -103,7 +128,7 @@ async function main(ctx: Context) {
         extensions: bundler.extensions,
       })
     } else {
-      logger.warn(`bundler is disabled`, {stage: 'bundler', hint: 'enable with bundler.enabled = true'})
+      stdout.warn(`bundler is disabled`, {stage: 'bundler', hint: 'enable with bundler.enabled = true'})
     }
 
     let mod = undefined
@@ -116,7 +141,7 @@ async function main(ctx: Context) {
         type: 'user',
       }
 
-      logger.error(error?.message ?? 'unknown', {
+      stderr.error(error?.message ?? 'unknown', {
         stack: error?.stack ?? 'unknown',
       })
 
@@ -153,7 +178,7 @@ async function main(ctx: Context) {
       }
 
       const dt = performance.now() - start
-      logger.log(`loaded ${middleware.length} middleware functions`, {stage: 'middleware', duration: dt})
+      stdout.log(`loaded ${middleware.length} middleware functions`, {stage: 'middleware', duration: dt})
     }
 
     // runtime
@@ -161,7 +186,7 @@ async function main(ctx: Context) {
     const version = process.env.XGSD_WORKER_VERSION ?? 'unknown'
     const {ttl, memory} = limits
 
-    logger.log(`worker running with version ${version} (ttl: ${ttl}, memory: ${memory})`, {
+    stdout.log(`worker running with version ${version} (ttl: ${ttl}, memory: ${memory})`, {
       stage: 'runtime',
       version,
       ttl,
@@ -174,15 +199,15 @@ async function main(ctx: Context) {
 
     const ms = performance.now() - start
 
-    logger.log(`worker finished in ${ms.toFixed(2)} ms`, {stage: 'runtime', version, duration: ms})
+    stdout.log(`worker finished in ${ms.toFixed(2)} ms`, {stage: 'runtime', version, duration: ms})
 
     if (result.error) {
-      logger.warn(`worker finished with errors (${ctx.error?.code ?? ctx.error?.message ?? 'unknown'})`, {
+      stdout.warn(`worker finished with errors (${ctx.error?.code ?? ctx.error?.message ?? 'unknown'})`, {
         stage: 'runtime',
         error: ctx.error?.message ?? 'unknown',
       })
 
-      logger.error(result?.error?.message ?? ctx.error?.message, result.error)
+      stderr.error(result?.error?.message ?? ctx.error?.message, result.error)
     }
 
     dispatch('DONE', {result, memory: process.memoryUsage().heapUsed})

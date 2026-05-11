@@ -3,16 +3,17 @@
  *  this ensures breaking changes don't creep into docs
  */
 import {describe, test, expect} from 'vitest'
-import {createHandler, WorkerConfigCacheStrategy, WorkerOutputMode} from '../src/index'
+import {createHandler, WorkerConfigCacheStrategy, WorkerOutputMode} from '../src/index.js'
 import {join} from 'path'
 
 const stream = {write: (chunk: any) => {}} as any
-const cwd = join(process.cwd(), 'fixtures', 'benchmark')
+const cwd = join(process.cwd(), 'fixtures', 'combined')
 
 describe('docs: quickstart code example', () => {
   test('runs the basic handler example', async () => {
     const handler = createHandler({
       cwd,
+      config: {entry: 'benchmark.js'},
       stream,
     })
 
@@ -25,7 +26,7 @@ describe('docs: quickstart code example', () => {
 describe('docs: config example', () => {
   test('doesnt throw any errors', async () => {
     const config = {
-      entry: 'worker.js',
+      entry: 'benchmark.js',
       dist: '.xgsd',
       bundler: {
         enabled: true,
@@ -43,7 +44,7 @@ describe('docs: config example', () => {
       },
     }
 
-    const handler = createHandler({cwd, config, stream})
+    const handler = createHandler({cwd, config, stream: process.stdout})
     await expect(handler()).resolves.toBeDefined()
   })
 })
