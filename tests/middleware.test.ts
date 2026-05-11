@@ -3,17 +3,6 @@ import {describe, test, expect} from 'vitest'
 import {join} from 'path'
 import {completeWorkerSetupFromConfig} from '../src/util/setup.js'
 
-const wrapper = () => {
-  const logs: any[] = []
-
-  return {
-    write: (chunk: any) => {
-      logs.push(JSON.parse(chunk))
-    },
-    end: () => logs,
-  }
-}
-
 const createTestEnvironment = (fixture: string, config?: any) => {
   const cwd = config?.cwd ?? join(process.cwd(), 'fixtures', 'combined')
   return completeWorkerSetupFromConfig({

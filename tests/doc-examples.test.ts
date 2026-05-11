@@ -44,7 +44,7 @@ describe('docs: config example', () => {
       },
     }
 
-    const handler = createHandler({cwd, config, stream: process.stdout})
+    const handler = createHandler({cwd, config, stream})
     await expect(handler()).resolves.toBeDefined()
   })
 })
