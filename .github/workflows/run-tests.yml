@@ -1,4 +1,5 @@
 name: quick tests against ubuntu
+
 on:
   push:
     branches:
@@ -11,29 +12,53 @@ jobs:
   unit-tests:
     strategy:
       matrix:
-        os: ['ubuntu-latest']
+        os: [ubuntu-latest]
         node_version: [24.x, 25.x]
       fail-fast: false
+
     runs-on: ${{ matrix.os }}
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node_version }}
           cache: yarn
 
-      # setup fixtures
+      # ----------------------------
+      # Cache fixture node_modules
+      # ----------------------------
+      - name: Cache fixture node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            fixtures/benchmark/node_modules
+            fixtures/errors/node_modules
+            fixtures/typescript/node_modules
+          key: ${{ runner.os }}-fixtures-node-modules-${{ hashFiles('fixtures/**/package.json', 'fixtures/**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-fixtures-node-modules-
+
+      # ----------------------------
+      # Setup fixtures
+      # ----------------------------
+
       - name: benchmark fixtures
         working-directory: ./fixtures/benchmark
-        run: yarn install --production
+        run: yarn install --frozen-lockfile --production
 
       - name: error fixtures
         working-directory: ./fixtures/errors
-        run: yarn install --production
+        run: yarn install --frozen-lockfile --production
 
       - name: typescript fixtures
         working-directory: ./fixtures/typescript
-        run: yarn install --production
+        run: yarn install --frozen-lockfile --production
+
+      # ----------------------------
+      # Main project install + build
+      # ----------------------------
 
       - run: yarn install --frozen-lockfile
       - run: yarn build

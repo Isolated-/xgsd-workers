@@ -20,6 +20,19 @@ jobs:
           node-version: ${{ matrix.node_version }}
           cache: yarn
 
+      # setup fixtures
+      - name: benchmark fixtures
+        working-directory: ./fixtures/benchmark
+        run: yarn install --production
+
+      - name: error fixtures
+        working-directory: ./fixtures/errors
+        run: yarn install --production
+
+      - name: typescript fixtures
+        working-directory: ./fixtures/typescript
+        run: yarn install --production
+
       - run: yarn install --frozen-lockfile
       - run: yarn build
       - run: yarn test
