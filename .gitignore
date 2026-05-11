@@ -22,3 +22,5 @@ runs/*
 test.js
 
 docs/*
+
+*/.xgsd
