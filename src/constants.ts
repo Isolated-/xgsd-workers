@@ -1,4 +1,4 @@
-import {WorkerOutputMode} from './core/types'
+import {WorkerOutputMode} from './core/types.js'
 
 export const DEFAULTS = {
   limits: {

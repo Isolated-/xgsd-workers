@@ -1,4 +1,4 @@
-import {Signal, WorkerResult} from '../core/types'
+import {Signal, WorkerResult} from '../core/types.js'
 
 export function normaliseKeys(value: any): any {
   if (Array.isArray(value)) {

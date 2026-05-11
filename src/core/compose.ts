@@ -1,5 +1,5 @@
-import {resolveDependency} from './bundler'
-import {Context, WorkerResult} from './types'
+import {resolveDependency} from './bundler.js'
+import {Context, WorkerResult} from './types.js'
 
 export type Next = () => Promise<void>
 

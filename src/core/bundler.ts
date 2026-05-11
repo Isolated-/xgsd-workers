@@ -1,9 +1,11 @@
 import {createHash, timingSafeEqual} from 'crypto'
 import path, {join, relative, sep} from 'path'
 import {readdir, readFile, stat} from 'fs/promises'
-import {pathExistsSync, readJsonSync, writeJsonSync} from '../util/fs'
+import {pathExistsSync, readJsonSync, writeJsonSync} from '../util/fs.js'
 import {createRequire} from 'module'
-import {createLogger} from '../process/workers.process'
+import {createLogger} from './shared.js'
+
+const logger = createLogger()
 
 export async function createBundle({
   project,
@@ -25,7 +27,6 @@ export async function createBundle({
   const out = join(dist, 'bundle.js')
   const entryFile = join(project, entry)
   const packageJsonPath = join(project, 'package.json')
-  const logger = createLogger()
 
   const hash = await calculateProjectHash(project)
   const outdir = path.dirname(out)

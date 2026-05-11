@@ -1,4 +1,13 @@
-import {ActivationSignal, Context, ErrorSignal, GenericSignal, LogSignal, Signal, SystemSignal} from './types.js'
+import {
+  ActivationSignal,
+  Context,
+  ErrorSignal,
+  GenericSignal,
+  LogSignal,
+  MetricSignal,
+  Signal,
+  SystemSignal,
+} from './types.js'
 import {Writable} from 'stream'
 
 type EmitOpts<T extends Record<string, unknown>> =
@@ -8,6 +17,7 @@ type EmitOpts<T extends Record<string, unknown>> =
   | {type: 'warn'; message: string; meta?: LogSignal}
   | {type: 'system'; message: string; meta?: SystemSignal}
   | {type: 'error'; message: string; meta?: ErrorSignal}
+  | {type: 'metric'; message: string; meta?: MetricSignal}
 
 export const DEFAULT_SIGNAL_FILE_NAME = 'signals.jsonl' as const
 
@@ -42,6 +52,9 @@ export function createSignalLogger(signal: SignalContext) {
     },
     system: (message: string, meta?: SystemSignal) => {
       wrapper('system', message, meta)
+    },
+    metric: (meta: MetricSignal) => {
+      wrapper('metric', `metric`, meta)
     },
   }
 }

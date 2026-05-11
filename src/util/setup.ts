@@ -1,12 +1,12 @@
-import {DEFAULTS} from '../constants'
-import {createSignalContext} from '../core/signal'
-import {Context, WorkerConfig} from '../core/types'
-import {getPackageVersion} from './package'
+import {DEFAULTS} from '../constants.js'
+import {createSignalContext} from '../core/signal.js'
+import {Context, WorkerConfig} from '../core/types.js'
 import {Writable} from 'stream'
 import {join} from 'path'
 import {randomUUID} from 'crypto'
 import {createWriteStream} from 'fs'
-import {normaliseSignal} from './format'
+import {normaliseSignal} from './format.js'
+import {version} from '../index.js'
 
 type SetupOpts = {
   id?: string
@@ -26,7 +26,7 @@ export function completeWorkerSetupFromConfig(opts: SetupOpts) {
     meta: {
       cwd: opts.cwd,
       dist,
-      version: getPackageVersion('@xgsd/workers', opts.cwd),
+      version: version,
       entry: opts.config?.entry ?? DEFAULTS.entryFileRelative,
       limits: {
         ...DEFAULTS.limits,

@@ -1,8 +1,9 @@
 import {join} from 'path'
-import {createBundle, resolveDependency} from '../core/bundler'
-import {compose, Next} from '../core/compose'
-import {Context, WorkerError, WorkerErrorCode} from '../core/types'
-import {pathExists} from '../util/fs'
+import {createBundle, resolveDependency} from '../core/bundler.js'
+import {compose, Next} from '../core/compose.js'
+import {Context, WorkerError, WorkerErrorCode} from '../core/types.js'
+import {pathExists} from '../util/fs.js'
+import {createLogger} from '../core/shared.js'
 
 export type RunFn<T> = (data: T) => Promise<any>
 
@@ -61,31 +62,6 @@ export function wrapper(fn: RunFn<unknown>) {
     }
 
     await next()
-  }
-}
-
-export function createLogger() {
-  return {
-    log: (message: string, meta?: Record<string, unknown>) => {
-      console.log(
-        JSON.stringify({
-          __sys: true,
-          type: 'system',
-          message: message,
-          meta,
-        }),
-      )
-    },
-    warn: (message: string, meta?: Record<string, unknown>) => {
-      console.log(
-        JSON.stringify({
-          __sys: true,
-          type: 'warn',
-          message: message,
-          meta,
-        }),
-      )
-    },
   }
 }
 
@@ -185,7 +161,7 @@ async function main(ctx: Context) {
       })
     }
 
-    dispatch('DONE', {result})
+    dispatch('DONE', {result, memory: process.memoryUsage().heapUsed})
   } finally {
     clearInterval(heartbeat)
   }

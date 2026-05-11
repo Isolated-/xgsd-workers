@@ -133,7 +133,7 @@ export type ActivationHandler = <T = unknown>(activation: Activation<T>) => Prom
 /**
  *  A **Signal** is used to communicate internal worker state or to provide traces.
  */
-export type SignalType = 'log' | 'error' | 'activation' | 'system' | 'generic' | 'warn'
+export type SignalType = 'log' | 'error' | 'activation' | 'system' | 'generic' | 'warn' | 'metric'
 
 export type Signal<T extends Record<string, unknown>> = {
   ctx: string
@@ -152,6 +152,7 @@ export type ErrorSignal = GenericSignal & {
   code?: WorkerErrorCode
 }
 
+export type MetricSignal = GenericSignal
 export type LogSignal = GenericSignal
 export type SystemSignal = GenericSignal
 

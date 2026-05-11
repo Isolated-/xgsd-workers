@@ -7,7 +7,7 @@ import {fileURLToPath} from 'url'
 
 type ChildMessage<T = unknown> =
   | {type: 'ALIVE'; error: undefined; result: undefined}
-  | {type: 'DONE'; result: WorkerResult<T>; error: undefined | null}
+  | {type: 'DONE'; result: WorkerResult<T>; error: undefined | null; memoryUsage: number}
   | {type: 'ERROR'; result: undefined | null; error: WorkerError}
 
 function isCoreSignal(object: Record<string, any>) {
@@ -107,7 +107,7 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
     }
 
     function finish(msg: ChildMessage) {
-      const {result} = msg
+      const {result, memoryUsage} = msg as any
       const duration = performance.now() - start
 
       // TODO: this should always be the final signal sent
@@ -117,6 +117,13 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
         ok: true,
         error: null,
         duration,
+      })
+
+      logger.metric({
+        version: ctx.meta.version,
+        duration,
+        memoryUsage,
+        ok: true,
       })
 
       // normal errors are wrapped inside the process

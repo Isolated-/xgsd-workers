@@ -9,6 +9,9 @@ import {WorkerError} from './core/types.js'
 export {runWorker}
 export * from './core/types.js'
 
+import packageJson from '../package.json' with {type: 'json'}
+export const version = packageJson.version
+
 type CreateHandlerOpts = {
   cwd?: string
   config: WorkerConfig
