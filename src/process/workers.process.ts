@@ -29,9 +29,7 @@ process.on('exit', (code: number) => {
 })
 
 function startHeartbeat(interval = 50) {
-  return setInterval(() => {
-    const memory = process.memoryUsage()
-
+  function pulse(memory: any) {
     dispatch('ALIVE', {
       pid: process.pid,
       uptime: process.uptime(),
@@ -42,6 +40,15 @@ function startHeartbeat(interval = 50) {
         external: memory.external,
       },
     })
+  }
+
+  let memory = process.memoryUsage()
+  pulse(memory)
+
+  return setInterval(() => {
+    memory = process.memoryUsage()
+
+    pulse(memory)
   }, interval)
 }
 

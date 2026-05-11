@@ -127,7 +127,7 @@ export type Activation<T = unknown> = {
   id?: string
   data?: T
   env?: Record<string, unknown>
-  cwd: string
+  cwd?: string
 }
 
 export type ActivationHandler = <T = unknown>(activation?: Activation<T>) => Promise<WorkerResult<T>>

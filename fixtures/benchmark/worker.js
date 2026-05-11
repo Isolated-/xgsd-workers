@@ -1,6 +1,10 @@
 export default async function worker(data) {
   console.log('worker')
 
+  if (data && data.show === 'env') {
+    return process.env
+  }
+
   return data
 }
 

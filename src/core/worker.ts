@@ -22,8 +22,6 @@ function collector(signal: SignalContext, type: 'stdout' | 'stderr') {
       try {
         const json = JSON.parse(line)
 
-        console.log(json)
-
         // core signals = __sys or structured logs
         // sent by usercode/child process
         if (isCoreSignal(json)) {

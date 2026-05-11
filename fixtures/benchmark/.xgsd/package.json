@@ -1,0 +1,9 @@
+{
+  "type": "module",
+  "dependencies": {
+    "@xgsd/engine": "^1.0.0-stable",
+    "@xgsd/workers": "^0.1.2"
+  },
+  "hash": "eb1fd6540f641edfb9d8e028e3f17b6e6f183bc3b140f81e894fc81751f08641",
+  "generated": "2026-05-11T09:50:43.453Z"
+}

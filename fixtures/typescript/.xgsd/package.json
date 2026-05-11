@@ -1,0 +1,14 @@
+{
+  "name": "ts",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@xgsd/engine": "^1.0.0-stable",
+    "@xgsd/workers": "0.1.3",
+    "esbuild": "^0.28.0"
+  },
+  "hash": "d5bd31a5315341fea1a5c22e42f1dbf3f4fc7b8415809cb12ca12b67e9ffbfa2",
+  "generated": "2026-05-11T09:50:43.524Z"
+}
