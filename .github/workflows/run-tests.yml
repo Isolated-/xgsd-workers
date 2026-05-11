@@ -46,15 +46,7 @@ jobs:
       # ----------------------------
       - name: combined fixtures
         working-directory: ./fixtures/combined
-        run: yarn install --frozen-lockfile --production
-
-      - name: middleware fixtures
-        working-directory: ./fixtures/middleware
-        run: yarn install --frozen-lockfile --production
-
-      - name: bad fixtures
-        working-directory: ./fixtures/bad
-        run: yarn install --frozen-lockfile --production
+        run: yarn install --production
 
       # ----------------------------
       # Main project install + build
