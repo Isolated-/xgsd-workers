@@ -25,4 +25,3 @@ docs/*
 
 fixtures/**/.xgsd
 fixtures/**/node_modules
-fixtures/**/yarn.lock
