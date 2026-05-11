@@ -13,6 +13,16 @@ export function createLogger() {
     metric: (meta: Record<string, unknown>) => {
       console.log(JSON.stringify({__sys: true, type: 'metric', message: 'metric', meta}))
     },
+    error: (message: string, meta?: Record<string, unknown>) => {
+      console.error(
+        JSON.stringify({
+          __sys: true,
+          type: 'error',
+          message: message,
+          meta,
+        }),
+      )
+    },
     warn: (message: string, meta?: Record<string, unknown>) => {
       console.log(
         JSON.stringify({

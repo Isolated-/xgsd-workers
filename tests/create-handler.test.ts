@@ -1,5 +1,6 @@
 import {createHandler} from '../src/index.js'
 import {join} from 'path'
+import {describe, expect, test} from 'vitest'
 
 const wrapper = () => {
   const logs: any[] = []
@@ -43,10 +44,15 @@ describe('workers', () => {
       config: {
         entry: 'worker.js',
       },
-      stream: process.stdout,
+      stream,
     })
 
     const result = await handler()
     expect(result.ok).toBe(false)
+
+    const errors = stream.end().filter((log: any) => log.type === 'error')
+
+    expect(errors.length).toBe(1)
+    expect(errors[0].message).toBe('something bad always happens')
   })
 })

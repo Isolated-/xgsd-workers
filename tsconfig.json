@@ -6,11 +6,11 @@
     "strict": true,
     "rootDir": "./src",
     "outDir": "dist",
-    "types": ["jest", "node"],
+    "types": ["vitest", "node"],
     "declaration": true,
     "allowImportingTsExtensions": false,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true
   },
-  "exclude": ["jest.config.ts", "tsup.config.ts"]
+  "exclude": ["vitest.config.ts", "tsup.config.ts"]
 }

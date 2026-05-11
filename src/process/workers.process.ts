@@ -162,6 +162,8 @@ async function main(ctx: Context) {
         stage: 'runtime',
         error: ctx.error?.message ?? 'unknown',
       })
+
+      logger.error(result?.error?.message ?? ctx.error?.message, result.error)
     }
 
     dispatch('DONE', {result, memory: process.memoryUsage().heapUsed})
