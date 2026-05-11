@@ -16,8 +16,8 @@ const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.me
 export const version = packageJson.version
 
 type CreateHandlerOpts = {
-  cwd?: string
-  config: WorkerConfig
+  cwd: string
+  config?: WorkerConfig
   stream?: Writable
   validator?: (config?: WorkerConfig) => WorkerConfig
 }
