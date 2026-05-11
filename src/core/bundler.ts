@@ -1,7 +1,7 @@
 import {createHash, timingSafeEqual} from 'crypto'
 import path, {join, relative, sep} from 'path'
 import {readdir, readFile, stat} from 'fs/promises'
-import {pathExistsSync, readJsonSync, writeJsonSync} from '../util/fs.js'
+import {hashPath, pathExistsSync, readJsonSync, writeJsonSync} from '../util/fs.js'
 import {createRequire} from 'module'
 import {createLogger} from './shared.js'
 
@@ -10,17 +10,19 @@ const logger = createLogger()
 export async function createBundle({
   project,
   dist,
-  cwd,
   entry,
   cacheStrategy,
-  log,
+  exclude,
+  include,
+  extensions,
 }: {
   project: string
   dist: string
-  cwd?: string
   entry: string
   cacheStrategy: 'always' | 'change' | 'never'
-  log?: boolean
+  exclude?: string[]
+  include?: string[]
+  extensions?: string[]
 }): Promise<string> {
   const start = performance.now()
 
@@ -28,11 +30,7 @@ export async function createBundle({
   const entryFile = join(project, entry)
   const packageJsonPath = join(project, 'package.json')
 
-  const hash = await calculateProjectHash(project)
   const outdir = path.dirname(out)
-
-  const packageJson = await readJsonSync(packageJsonPath)
-
   const outPackageJsonPath = join(outdir, 'package.json')
   const cacheFilesExist = pathExistsSync(outPackageJsonPath) && pathExistsSync(out)
 
@@ -45,6 +43,10 @@ export async function createBundle({
 
     return out
   }
+
+  const hash = (await hashPath(project, {exclude, include, extensions})).hash
+
+  logger.log(`worker hash ${hash.slice(0, 8)}`, {stage: 'bundler', type: 'change detection', hash})
 
   if (cacheFilesExist && cacheStrategy === 'change') {
     const outPackageJson = readJsonSync(outPackageJsonPath)
@@ -83,6 +85,7 @@ export async function createBundle({
 
   logger.log(`copying package.json to ${join(dist, 'package.json')}`, {stage: 'bundler'})
 
+  const packageJson = await readJsonSync(packageJsonPath)
   writeJsonSync(path.join(outdir, 'package.json'), {
     ...packageJson,
     hash,
@@ -137,88 +140,6 @@ export type WalkedFile = {
 type WalkOptions = {
   ignore?: string[]
   filter?: (path: string) => boolean
-}
-
-export async function calculateProjectHash(project: string): Promise<string> {
-  const hashes = await collectProjectHashes(project, {
-    ignore: ['node_modules', '.xgsd', 'dist', '.git'],
-    filter: (path) => path.endsWith('.js') || path.endsWith('.ts'),
-  })
-
-  const normalised = hashes
-    .map((h) => h.hash.trim().slice(0, 9))
-    .sort()
-    .join('|')
-
-  return createHash('sha256').update(normalised).digest('hex')
-}
-
-export async function collectProjectHashes(projectPath: string, options: WalkOptions = {}): Promise<WalkedFile[]> {
-  const {ignore = ['node_modules'], filter = () => true} = options
-
-  const files: WalkedFile[] = []
-
-  const ignored = new Set(ignore)
-
-  const shouldIgnore = (target: string) => {
-    const parts = relative(projectPath, target).split(sep)
-
-    return parts.some((part) => ignored.has(part))
-  }
-
-  const hashFile = async (filePath: string) => {
-    const buffer = await readFile(filePath)
-
-    const hash = createHash('sha256').update(buffer).digest('hex')
-    const rel = relative(projectPath, filePath)
-
-    logger.log(`${rel} has hash ${hash.slice(0, 8)}`, {stage: 'bundler', type: 'change detection'})
-
-    return hash
-  }
-
-  const visit = async (current: string): Promise<void> => {
-    if (shouldIgnore(current)) {
-      return
-    }
-
-    const entries = await readdir(current)
-
-    for (const entry of entries) {
-      const fullPath = join(current, entry)
-
-      if (shouldIgnore(fullPath)) {
-        continue
-      }
-
-      const info = await stat(fullPath)
-
-      if (info.isDirectory()) {
-        await visit(fullPath)
-        continue
-      }
-
-      if (!info.isFile()) {
-        continue
-      }
-
-      const path = relative(projectPath, fullPath)
-
-      if (!filter(path)) {
-        continue
-      }
-
-      files.push({
-        path,
-        hash: await hashFile(fullPath),
-        size: info.size,
-      })
-    }
-  }
-
-  await visit(projectPath)
-
-  return files.sort((a, b) => a.path.localeCompare(b.path))
 }
 
 export function safeHashCompare(a: string, b: string): boolean {

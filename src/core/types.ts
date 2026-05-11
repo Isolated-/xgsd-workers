@@ -58,6 +58,9 @@ export type WorkerConfig = {
   dist?: string
   bundler?: {
     enabled?: boolean
+    exclude?: string[]
+    include?: string[]
+    extensions?: string[]
     cache?: WorkerConfigCache
   }
   http?: {
@@ -95,6 +98,9 @@ export type ContextMetadata = {
   }
   bundler: {
     enabled: boolean
+    exclude?: string[]
+    include?: string[]
+    extensions?: string[]
     cache?: WorkerConfigCache
   }
   output: {

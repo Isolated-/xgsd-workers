@@ -92,6 +92,9 @@ async function main(ctx: Context) {
         dist,
         entry,
         cacheStrategy: bundler.cache?.strategy ?? 'never',
+        exclude: bundler.exclude,
+        include: bundler.include,
+        extensions: bundler.extensions,
       })
     } else {
       logger.warn(`bundler is disabled`, {stage: 'bundler', hint: 'enable with bundler.enabled = true'})
