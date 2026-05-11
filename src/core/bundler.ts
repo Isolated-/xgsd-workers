@@ -22,18 +22,11 @@ export async function createBundle({
 }): Promise<string> {
   const start = performance.now()
 
-  const xgsd = join(project, dist ?? '.xgsd')
-  const out = join(xgsd, 'bundle.js')
+  const out = join(dist, 'bundle.js')
   const entryFile = join(project, entry)
   const packageJsonPath = join(project, 'package.json')
-  const outPathRel = join(dist ?? '.xgsd', 'bundle.js')
   const logger = createLogger()
 
-  // v0.7 note
-  // dont do this as it adds 20-30MB of memory before anything even runs
-  // bundling is fine but current AST parsing/traversal is unneeded
-  // instead split into two concerns: dependencies (from package.json) and code changes (from hashes)
-  // do this instead:
   const hash = await calculateProjectHash(project)
   const outdir = path.dirname(out)
 
@@ -43,7 +36,7 @@ export async function createBundle({
   const cacheFilesExist = pathExistsSync(outPackageJsonPath) && pathExistsSync(out)
 
   if (cacheFilesExist && cacheStrategy === 'always') {
-    logger.warn(`${outPathRel} will always load from cache`, {
+    logger.warn(`bundle.js will always load from cache`, {
       stage: 'bundler',
       strategy: 'always',
       hint: 'set cache.strategy = never or change',
@@ -58,7 +51,7 @@ export async function createBundle({
     if (outPackageJson.hash && safeHashCompare(outPackageJson.hash, hash)) {
       // cache hit
 
-      logger.log(`no change detected - ${outPathRel} has been loaded from cache`, {
+      logger.log(`no change detected - bundle.js has been loaded from cache`, {
         stage: 'bundler',
         strategy: 'change',
         hint: 'none',
@@ -67,14 +60,14 @@ export async function createBundle({
       return out
     }
 
-    logger.log(`change detected - ${outPathRel} will be rebuilt`, {stage: 'bundler', strategy: 'change', hint: 'none'})
+    logger.log(`change detected - bundle.js will be rebuilt`, {stage: 'bundler', strategy: 'change', hint: 'none'})
   }
 
   const dependencies = Object.entries(readJsonSync(packageJsonPath).dependencies).map((d) => d[0])
   const generated = new Date().toISOString()
 
   // for now let esbuild notify of errors
-  logger.log(`${entry} will be bundled to ${outPathRel}`, {stage: 'bundler'})
+  logger.log(`${entry} will be bundled to bundle.js`, {stage: 'bundler', absolute: out})
 
   await bundle({
     entry: entryFile,
