@@ -23,4 +23,5 @@ test.js
 
 docs/*
 
-*/.xgsd
+fixtures/**/.xgsd
+fixtures/**/node_modules
