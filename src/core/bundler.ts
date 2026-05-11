@@ -169,7 +169,12 @@ export async function collectProjectHashes(projectPath: string, options: WalkOpt
   const hashFile = async (filePath: string) => {
     const buffer = await readFile(filePath)
 
-    return createHash('sha256').update(buffer).digest('hex')
+    const hash = createHash('sha256').update(buffer).digest('hex')
+    const rel = relative(projectPath, filePath)
+
+    logger.log(`${rel} has hash ${hash.slice(0, 8)}`, {stage: 'bundler', type: 'change detection'})
+
+    return hash
   }
 
   const visit = async (current: string): Promise<void> => {
