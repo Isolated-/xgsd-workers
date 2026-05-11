@@ -40,6 +40,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-fixtures-node-modules-
 
+      - run: yarn install --frozen-lockfile
       - run: yarn build
 
       # ----------------------------
@@ -69,6 +70,4 @@ jobs:
       # ----------------------------
       # Main project install + build
       # ----------------------------
-
-      - run: yarn install --frozen-lockfile
       - run: yarn test
