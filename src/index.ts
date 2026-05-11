@@ -8,13 +8,14 @@ export {runWorker}
 export * from './core/types.js'
 
 type CreateHandlerOpts = {
+  cwd?: string
   config: WorkerConfig
   stream?: Writable
-  validator?: (config: WorkerConfig) => WorkerConfig
+  validator?: (config?: WorkerConfig) => WorkerConfig
 }
 
-export function createHandler(opts: CreateHandlerOpts): ActivationHandler {
-  const {config, stream, validator} = opts
+export function createHandler(opts?: CreateHandlerOpts): ActivationHandler {
+  const {config, stream, validator, cwd} = opts ?? {}
 
   return async function handler(activation) {
     let validated = undefined
@@ -31,10 +32,10 @@ export function createHandler(opts: CreateHandlerOpts): ActivationHandler {
     }
 
     const {ctx, signal} = completeWorkerSetupFromConfig({
-      id: activation.id,
-      cwd: activation.cwd,
-      data: activation.data!,
-      env: activation.env,
+      id: activation?.id,
+      cwd: activation?.cwd ?? cwd,
+      data: activation?.data!,
+      env: activation?.env,
       config: validated,
       stream,
     })
