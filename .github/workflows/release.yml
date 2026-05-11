@@ -42,15 +42,16 @@ jobs:
       # ----------------------------
       # Setup fixtures
       # ----------------------------
+      - run: yarn build
+      - run: yarn install --frozen-lockfile
+
       - name: combined fixtures
         working-directory: ./fixtures/combined
-        run: yarn install --frozen-lockfile --production
+        run: yarn install --production
 
       # ----------------------------
       # Main install + test
       # ----------------------------
-      - run: yarn install --frozen-lockfile
-      - run: yarn build
       - run: yarn test
       # - run: yarn test:integration
       # - run: yarn test:e2e
