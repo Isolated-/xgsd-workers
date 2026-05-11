@@ -1,0 +1,12 @@
+{
+  "name": "combined",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "esbuild": "^0.28.0"
+  },
+  "hash": "bb0d64108f537465a3221a044030e2694d73b76efc4dd531a162fda5ec45933b",
+  "generated": "2026-05-11T16:54:43.408Z",
+  "type": "module"
+}
