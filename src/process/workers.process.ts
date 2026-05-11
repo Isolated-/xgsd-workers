@@ -109,9 +109,22 @@ async function main(ctx: Context) {
     let mod = undefined
     try {
       mod = await import(entryFile)
-    } catch (error) {}
+    } catch (error: any) {
+      const err: WorkerError = {
+        code: WorkerErrorCode.CODE_INVALID_ENTRY_FILE,
+        message: `${entryFile} cannot be loaded, this could mean there's an error in your code.`,
+        type: 'user',
+      }
 
-    if (!mod || !mod.default || typeof mod.default !== 'function') {
+      logger.error(error?.message ?? 'unknown', {
+        stack: error?.stack ?? 'unknown',
+      })
+
+      dispatch('ERROR', {error: err, original: JSON.stringify(error)})
+      return
+    }
+
+    if (!mod.default || typeof mod.default !== 'function') {
       const error: WorkerError = {
         code: WorkerErrorCode.CODE_INVALID_DEFAULT_FUNCTION,
         message: 'default must be a function',

@@ -117,6 +117,7 @@ export type Context<T = unknown, E = any> = {
   result?: T | null
   error?: E | null
   meta: ContextMetadata
+  [key: string]: unknown
 }
 
 /**
