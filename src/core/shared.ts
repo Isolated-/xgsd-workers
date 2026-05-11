@@ -1,36 +1,29 @@
-export function createLogger() {
+export function createLogger(stream?: Writable) {
   return {
     log: (message: string, meta?: Record<string, unknown>) => {
-      console.log(
-        JSON.stringify({
-          __sys: true,
-          type: 'system',
-          message: message,
-          meta,
-        }),
-      )
+      stream.write(JSON.stringify({__sys: true, type: 'system', message, meta}) + '\n')
     },
     metric: (meta: Record<string, unknown>) => {
-      console.log(JSON.stringify({__sys: true, type: 'metric', message: 'metric', meta}))
+      stream.write(JSON.stringify({__sys: true, type: 'metric', message: 'metric', meta}) + '\n')
     },
     error: (message: string, meta?: Record<string, unknown>) => {
-      console.error(
+      stream.write(
         JSON.stringify({
           __sys: true,
           type: 'error',
           message: message,
           meta,
-        }),
+        }) + '\n',
       )
     },
     warn: (message: string, meta?: Record<string, unknown>) => {
-      console.log(
+      stream.write(
         JSON.stringify({
           __sys: true,
           type: 'warn',
           message: message,
           meta,
-        }),
+        }) + '\n',
       )
     },
   }

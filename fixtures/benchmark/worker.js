@@ -5,6 +5,8 @@ export default async function worker(data) {
     return process.env
   }
 
+  console.log(JSON.stringify({customSignal: true}))
+
   return data
 }
 

@@ -1,3 +1,10 @@
+/**
+ *  This file e2e tests createHandler()
+ *
+ *  @since v1
+ *  @description this file should aim for 100% coverage of index.ts
+ */
+
 import {createHandler} from '../src/index.js'
 import {join} from 'path'
 import {describe, expect, test} from 'vitest'
@@ -14,7 +21,7 @@ const wrapper = () => {
   }
 }
 
-const createTestHandler = (fixture: string, config?: any) => {
+const createTestHandler = (fixture: string, config?: any, validator?: any) => {
   const stream = wrapper() as any
 
   const handler = createHandler({
@@ -27,10 +34,15 @@ const createTestHandler = (fixture: string, config?: any) => {
       ...config,
     },
     stream,
+    validator,
   })
 
   return {handler, stream}
 }
+
+/**
+ *  SUCCESS
+ */
 
 describe('workers - success', () => {
   test('runs worker successfully', async () => {
@@ -44,6 +56,23 @@ describe('workers - success', () => {
     expect(result.result).toBe(null)
     expect(result.error).toBe(null)
     expect(logs.length).toBeGreaterThan(0)
+  })
+
+  test('can be called without opts', async () => {
+    const handler = createHandler()
+
+    // instead "cwd" can be provided to handler()
+    const result = await handler({cwd: join(process.cwd(), 'fixtures', 'benchmark')})
+    expect(result.ok).toBe(true)
+  })
+
+  test('users can send custom signals', async () => {
+    const {handler, stream} = createTestHandler('benchmark')
+
+    await handler()
+    const logs = stream.end().filter((l: any) => l.type === 'generic')
+    expect(logs[0].message).toBe('generic')
+    expect(logs[0].meta).toEqual({customSignal: true})
   })
 
   test('runs TypeScript workers', async () => {
@@ -106,6 +135,10 @@ describe('workers - success', () => {
     })
   })
 })
+
+/**
+ *  BUNDLER
+ */
 
 describe('workers - bundler related', () => {
   test('worker code is bundled (JavaScript)', async () => {
@@ -173,7 +206,43 @@ describe('workers - bundler related', () => {
   })
 })
 
+/**
+ *  ERRORS
+ */
+
 describe('workers - failures/errors/bad stuff', () => {
+  test('worker config validation takes place and rejects bad values', async () => {
+    const {handler} = createTestHandler('benchmark', {bad: true}, () => {
+      throw new Error('validation failed')
+    })
+
+    const result = await handler()
+
+    // validation errors don't result in a fatal error
+    // so that transporters can decide how to handle failure
+    expect(result.ok).toBe(false)
+    expect(result.error?.code).toBe('CODE_INVALID_CONFIG')
+  })
+
+  test('throws fatal error when default is not a function', async () => {
+    const {handler, stream} = createTestHandler('bad')
+
+    await expect(handler()).rejects.toThrow()
+
+    const logs = stream.end().filter((l: any) => l.type === 'activation')
+    expect(logs[0].meta.error).toBe('CODE_INVALID_DEFAULT_FUNCTION')
+  })
+
+  test('throws error when entry file does not exist', async () => {
+    const {handler} = createTestHandler('benchmark', {entry: 'bad.js'})
+
+    try {
+      await handler()
+    } catch (error: any) {
+      expect(error?.code).toBe('CODE_INVALID_ENTRY_FILE')
+    }
+  })
+
   test('worker errors are returned correctly', async () => {
     const {handler, stream} = createTestHandler('errors')
 

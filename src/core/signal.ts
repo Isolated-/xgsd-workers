@@ -69,7 +69,7 @@ export function createSignalContext(opts: {
   return {
     emit<T extends Record<string, unknown>>(signal: EmitOpts<T>) {
       const e: Signal<T> = {
-        ctx: ctx.id ?? 'unknown',
+        ctx: ctx?.id ?? 'unknown',
         timestamp: Date.now(),
         type: signal.type,
         message: signal.message,
