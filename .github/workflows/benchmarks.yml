@@ -3,11 +3,10 @@
 name: Benchmarks
 
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
-      - dev/v1
+  schedule:
+    # Runs every day at 02:00 UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch: # allows manual trigger too
 
 jobs:
   benchmark:
