@@ -5,7 +5,7 @@ export default defineConfig({
     index: 'src/index.ts',
     'process/workers.process': 'src/process/workers.process.ts',
   },
-  format: ['esm', 'cjs'],
+  format: ['esm'],
   dts: true,
   clean: true,
   sourcemap: true,

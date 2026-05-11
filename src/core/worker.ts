@@ -1,10 +1,9 @@
 import {fork} from 'child_process'
-import {join} from 'path'
 import {Context, WorkerError, WorkerErrorCode, WorkerResult} from './types.js'
 import {createSignalLogger, SignalContext} from './signal.js'
 import {formatWorkerResult} from '../util/format.js'
-import {ensureDirSync, pathExistsSync} from '../util/fs.js'
-import {mkdirSync} from 'fs'
+import {ensureDirSync} from '../util/fs.js'
+import {fileURLToPath} from 'url'
 
 type ChildMessage<T = unknown> =
   | {type: 'ALIVE'; error: undefined; result: undefined}
@@ -147,7 +146,7 @@ export async function runWorker<T>(opts: {ctx: Context<T>; signal: SignalContext
   signal.emit({type: 'system', message: 'starting container'})
 
   // TODO: remove hardcoded worker path
-  const path = join(__dirname, 'process', 'workers.process.js')
+  const path = fileURLToPath(new URL('../dist/process/workers.process.js', import.meta.url))
   const child = fork(path, {
     stdio: ['inherit', 'pipe', 'pipe', 'ipc'],
     // hard limit results in V8 errors
