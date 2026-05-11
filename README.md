@@ -35,19 +35,14 @@ Run a worker:
 ```javascript
 import {createHandler} from '@xgsd/workers'
 
-const config = getWorkerConfig()
-const handler = createHandler(config)
+const handler = createHandler({
+  cwd: process.cwd(),
+  stream: process.stdout,
+})
 
-// inside your transport (e.g. Express route):
 async function callback(req, res) {
-  const data = req.body
-
-  const result = await handler({
-    data,
-    env: {
-      // env vars
-    },
-    cwd: 'path/to/worker',
+  return handler({
+    data: req.body,
   })
 }
 ```
