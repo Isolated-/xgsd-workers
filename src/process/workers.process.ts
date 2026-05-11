@@ -1,5 +1,4 @@
 import {join} from 'path'
-import {createBundle} from '../core/bundler.js'
 import {execute, SourceData} from '@xgsd/engine'
 import {compose, Next} from '../core/compose.js'
 import {Context, WorkerError, WorkerErrorCode} from '../core/types.js'
@@ -97,7 +96,7 @@ async function main(ctx: Context) {
 
   rejectionHandler()
 
-  const {entry, cwd, bundler, dist, limits} = ctx.meta
+  const {entry, cwd, limits} = ctx.meta
   let entryFile = join(cwd ?? '', entry)
 
   stdout.log(`container started (pid: ${process.pid})`, {stage: 'runtime', pid: process.pid})
@@ -114,21 +113,6 @@ async function main(ctx: Context) {
 
       dispatch('ERROR', {error})
       return
-    }
-
-    // bundler
-    if (bundler.enabled) {
-      entryFile = await createBundle({
-        project: cwd,
-        dist,
-        entry,
-        cacheStrategy: bundler.cache?.strategy ?? 'never',
-        exclude: bundler.exclude,
-        include: bundler.include,
-        extensions: bundler.extensions,
-      })
-    } else {
-      stdout.warn(`bundler is disabled`, {stage: 'bundler', hint: 'enable with bundler.enabled = true'})
     }
 
     let mod = undefined

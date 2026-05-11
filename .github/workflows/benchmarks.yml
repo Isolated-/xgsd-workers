@@ -1,0 +1,57 @@
+# .github/workflows/benchmark.yml
+
+name: Benchmarks
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        concurrency: [4, 8, 16, 32]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build
+        run: yarn build
+
+      - name: System information
+        run: |
+          echo "Node: $(node -v)"
+          echo "CPU cores: $(nproc)"
+          echo "Memory:"
+          free -h
+          echo "Kernel:"
+          uname -a
+
+      - name: Run benchmark
+        env:
+          CONCURRENCY: ${{ matrix.concurrency }}
+          ACTIVATIONS: 10000
+        run: node benchmarks/concurrency.js
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ matrix.concurrency }}
+          path: benchmarks/results

@@ -8,7 +8,6 @@
 import {createHandler} from '../src/index.js'
 import {join} from 'path'
 import {describe, expect, test} from 'vitest'
-import {pathExistsSync, readJsonSync} from '../src/util/fs.js'
 
 const wrapper = () => {
   const logs: any[] = []
@@ -138,8 +137,14 @@ describe('workers - success', () => {
 
 /**
  *  BUNDLER
+ *
+ *  @depreciated
+ *  @since v1
+ *
+ *  This has been removed as it resulted in failures
+ *  and depended on filesystems.
  */
-
+/*
 describe('workers - bundler related', () => {
   async function assertBundler(entry: string, dist: string) {
     const {handler, stream} = createTestHandler(entry, {dist, bundler: {enabled: true}})
@@ -186,6 +191,7 @@ describe('workers - bundler related', () => {
     expect(log.meta.strategy).toEqual('always')
   })
 })
+*/
 
 /**
  *  ERRORS

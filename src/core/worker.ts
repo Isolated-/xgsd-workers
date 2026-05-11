@@ -53,9 +53,6 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
     const logger = createSignalLogger(signal)
     logger.system('container manager started')
 
-    ensureDirSync(ctx.meta.dist)
-    logger.system(`found dist`, {dist: ctx.meta.dist})
-
     let completed = false
 
     const cleanup = () => {

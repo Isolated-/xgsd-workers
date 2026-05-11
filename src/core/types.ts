@@ -60,17 +60,6 @@ export type WorkerResult<T> =
 
 export type WorkerConfig = {
   entry: string
-  dist?: string
-  bundler?: {
-    enabled?: boolean
-    exclude?: string[]
-    include?: string[]
-    extensions?: string[]
-    cache?: WorkerConfigCache
-  }
-  http?: {
-    cache?: WorkerConfigCache
-  }
   limits?: {
     ttl?: number
     memory?: number
@@ -78,11 +67,6 @@ export type WorkerConfig = {
   output?: {
     mode?: 'raw' | 'wrapped' | 'auto' // support more types
   }
-}
-
-export type WorkerConfigCacheStrategy = 'always' | 'change' | 'never'
-export type WorkerConfigCache = {
-  strategy?: WorkerConfigCacheStrategy
 }
 
 export type WorkerOutputMode = 'raw' | 'wrapped' | 'auto'
@@ -95,18 +79,10 @@ export type ContextMetadata = {
   version: string
   pid?: number
   entry: string
-  dist: string
   cwd: string
   limits: {
     ttl: number
     memory: number
-  }
-  bundler: {
-    enabled: boolean
-    exclude?: string[]
-    include?: string[]
-    extensions?: string[]
-    cache?: WorkerConfigCache
   }
   output: {
     mode: WorkerOutputMode
