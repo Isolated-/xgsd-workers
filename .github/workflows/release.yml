@@ -5,77 +5,121 @@ on:
     types: [released]
 
 jobs:
-  # Test against multiple Node versions
+  # ----------------------------
+  # Test across Node versions
+  # ----------------------------
   test:
     strategy:
       matrix:
-        os: ['ubuntu-latest']
+        os: [ubuntu-latest]
         node_version: [22.x, 24.x, 25.x]
       fail-fast: false
+
     runs-on: ${{ matrix.os }}
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node_version }}
           cache: yarn
 
-      # setup fixtures
+      # ----------------------------
+      # Cache fixture node_modules
+      # ----------------------------
+      - name: Cache fixture node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            fixtures/benchmark/node_modules
+            fixtures/errors/node_modules
+            fixtures/typescript/node_modules
+          key: ${{ runner.os }}-fixtures-node-modules-${{ hashFiles('fixtures/**/package.json', 'fixtures/**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-fixtures-node-modules-
+
+      # ----------------------------
+      # Setup fixtures
+      # ----------------------------
       - name: benchmark fixtures
         working-directory: ./fixtures/benchmark
-        run: yarn install --production
+        run: yarn install --frozen-lockfile --production
 
       - name: error fixtures
         working-directory: ./fixtures/errors
-        run: yarn install --production
+        run: yarn install --frozen-lockfile --production
 
       - name: typescript fixtures
         working-directory: ./fixtures/typescript
-        run: yarn install --production
+        run: yarn install --frozen-lockfile --production
 
+      # ----------------------------
+      # Main install + test
+      # ----------------------------
       - run: yarn install --frozen-lockfile
       - run: yarn build
       - run: yarn test
-      #- run: yarn test:integration
-      #- run: yarn test:e2e
+      # - run: yarn test:integration
+      # - run: yarn test:e2e
 
+  # ----------------------------
   # Build once for release
+  # ----------------------------
   build:
     needs: test
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 24.x
           cache: yarn
+
+      # (no fixtures needed here — keeps release clean)
+
       - run: yarn install --frozen-lockfile
       - run: yarn build
+
       - uses: actions/upload-artifact@v4
         with:
           name: dist-folder
           path: ./dist
 
+  # ----------------------------
   # Publish to npm
+  # ----------------------------
   release-npm:
     needs: build
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: dist-folder
           path: ./dist
+
       - uses: actions/setup-node@v4
         with:
           node-version: 24.x
           cache: yarn
+
       - run: yarn install --frozen-lockfile
+
+      # Extract version from tag (fixes output usage)
       - name: Get version from tag
-        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
         id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
       - run: yarn version --new-version ${{ steps.version.outputs.version }} --no-git-tag-version
-      - run: echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
+
+      - name: Authenticate npm
+        run: echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - run: npm publish --access public
