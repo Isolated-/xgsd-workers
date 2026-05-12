@@ -156,7 +156,9 @@ type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
  *
  * @since v1
  */
-export function createTransport(opts: CreateTransportOpts): ActivationHandler {
+export function createTransport<Mode extends WorkerOutputMode = 'wrapped'>(
+  opts: CreateTransportOpts<Mode>,
+): ActivationHandler {
   const {limits, entry, output} = opts
   const stream = opts.stream
 
