@@ -7,8 +7,6 @@
 
 **Workers.js** runs your code in a container that handle most failures for you.
 
-This is a simplified alternative to the full xGSD runtime — focusing on fast execution, low memory usage, and deterministic behaviour.
-
 ---
 
 ## Install

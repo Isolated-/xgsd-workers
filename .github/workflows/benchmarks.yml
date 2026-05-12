@@ -9,7 +9,7 @@ on:
   workflow_dispatch: # allows manual trigger too
   push:
     branches:
-      - dev/v1
+      - main
 
 jobs:
   benchmark:
