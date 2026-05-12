@@ -7,6 +7,9 @@ on:
     # Runs every day at 02:00 UTC
     - cron: '0 2 * * *'
   workflow_dispatch: # allows manual trigger too
+  push:
+    branches:
+      - dev/v1
 
 jobs:
   benchmark:
@@ -16,7 +19,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        activations: [1000, 5000, 10000]
         concurrency: [4, 8, 16, 32]
+        items: [1, 256, 2048]
 
     steps:
       - name: Checkout
@@ -46,12 +51,13 @@ jobs:
       - name: Run benchmark
         env:
           CONCURRENCY: ${{ matrix.concurrency }}
-          ACTIVATIONS: 10000
+          ITEMS: ${{ matrix.items }}
+          ACTIVATIONS: ${{ matrix.activations }}
         run: node benchmarks/concurrency.js
 
       - name: Upload benchmark results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-${{ matrix.concurrency }}
+          name: benchmark-${{ matrix-activations }}-${{ matrix.concurrency }}-${{ matrix.items }}
           path: benchmarks/results
