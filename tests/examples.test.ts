@@ -27,6 +27,23 @@ describe('doc example tests', () => {
     expect(result.ok).toBe(true)
   })
 
+  test('doc example: Quickstart (README)', async () => {
+    const transport = createTransport({
+      entry: join(process.cwd(), 'fixtures', 'combined', 'http.js'),
+      stream: {write: (chunk: any) => {}},
+    })
+
+    async function callback(req: any, res: any) {
+      return transport({
+        data: req.body,
+        env: {MY_VAR: 'hello world'},
+      })
+    }
+
+    const result = await callback({body: 'hello world'}, undefined)
+    expect(result.ok).toBe(true)
+  })
+
   test('doc example: Options', async () => {
     // override default stream
     const stream = createWriteStream('output.jsonl')
