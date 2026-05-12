@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        activations: [1000, 10000, 50000]
+        activations: [1000, 10000]
         concurrency: [4, 8, 16]
         items: [256, 2048]
 
