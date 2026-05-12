@@ -10,8 +10,16 @@
  */
 
 import {describe, expect, test} from 'vitest'
-import {createTransport, WorkerErrorCode} from '../src/index.js'
+import {createTransport, version, WorkerErrorCode} from '../src/index.js'
 import {join} from 'path'
+
+describe('exports', () => {
+  test('API exports', () => {
+    expect(createTransport).toBeDefined()
+    expect(version).toBeDefined()
+    expect(WorkerErrorCode).toBeDefined()
+  })
+})
 
 const wrapper = () => {
   const logs: any[] = []
@@ -208,9 +216,7 @@ describe('Workers Public API', () => {
   describe('Worker Guard', () => {
     test('worker guard suspends processes (ttl)', async () => {
       const {transport} = createTestTransport('worker.js', {
-        config: {
-          limits: {ttl: 1},
-        },
+        limits: {ttl: 1},
       })
 
       const res = await transport()
@@ -219,7 +225,7 @@ describe('Workers Public API', () => {
     })
 
     test('worker guard suspends processes (memory)', async () => {
-      const {transport} = createTestTransport('worker.js', {config: {limits: {memory: 0}}})
+      const {transport} = createTestTransport('worker.js', {limits: {memory: 0}})
 
       const res = await transport()
       expect(res.ok).toBe(false)

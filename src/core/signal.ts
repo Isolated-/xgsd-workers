@@ -1,3 +1,4 @@
+import {StreamLike} from '../types/stream-like.type.js'
 import {
   ActivationSignal,
   Context,
@@ -8,7 +9,6 @@ import {
   Signal,
   SystemSignal,
 } from './types.js'
-import {Writable} from 'stream'
 
 type EmitOpts<T extends Record<string, unknown>> =
   | {type: 'generic'; message: string; meta?: T}
@@ -61,7 +61,7 @@ export function createSignalLogger(signal: SignalContext) {
 
 export function createSignalContext(opts: {
   ctx: Context
-  stream: Writable
+  stream: StreamLike
   mapper?: (input: Signal<any>) => Signal<any>
 }): SignalContext {
   const {ctx, stream, mapper} = opts

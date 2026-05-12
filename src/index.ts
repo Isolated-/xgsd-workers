@@ -17,13 +17,17 @@ const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.me
 export const version = packageJson.version
 
 import {StreamLike} from './types/stream-like.type.js'
+export {StreamLike}
 
 type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
   entry: string
   // take WorkerConfig off API
   // as apps can really define what that is
-  config?: WorkerConfig
   stream?: StreamLike
+  limits?: {
+    ttl?: number
+    memory?: number
+  }
   output?: {
     mode?: Mode
   }
@@ -160,13 +164,16 @@ type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
  * @since v1
  */
 export function createTransport(opts: CreateTransportOpts): ActivationHandler {
-  const {config, entry, output} = opts
-  const stream = (opts.stream ?? process.stdout) as Writable
+  const {limits, entry, output} = opts
+  const stream = opts.stream
 
-  const {ctx, signal} = completeWorkerSetupFromConfig({config: {...config, entry, output}, stream, cwd: ''})
+  const config = {
+    entry,
+    limits,
+    output,
+  }
 
-  ctx.meta.entry = path.resolve(ctx.meta.entry)
-  ctx.meta.cwd = path.dirname(ctx.meta.entry)
+  const {ctx, signal} = completeWorkerSetupFromConfig({config, stream})
 
   return async function handle(activation) {
     const activationCtx = {

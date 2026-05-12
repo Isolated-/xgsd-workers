@@ -1,19 +1,17 @@
 import {DEFAULTS} from '../constants.js'
 import {createSignalContext} from '../core/signal.js'
 import {Context, WorkerConfig} from '../core/types.js'
-import {Writable} from 'stream'
-import {join} from 'path'
 import {randomUUID} from 'crypto'
-import {createWriteStream} from 'fs'
 import {normaliseSignal} from './format.js'
 import {version} from '../index.js'
+import {StreamLike} from '../types/stream-like.type.js'
+import path from 'path'
 
 type SetupOpts = {
   id?: string
-  cwd: string
   data?: Record<string, any> | null
   env?: Record<string, any>
-  stream?: Writable
+  stream?: StreamLike
   config?: WorkerConfig
 }
 
@@ -26,7 +24,7 @@ export function completeWorkerSetupFromConfig(opts: SetupOpts) {
     error: null,
     result: null,
     meta: {
-      cwd: opts.cwd,
+      cwd: '',
       version: version,
       entry: opts.config?.entry ?? DEFAULTS.entryFileRelative,
       limits: {
@@ -39,6 +37,9 @@ export function completeWorkerSetupFromConfig(opts: SetupOpts) {
       },
     },
   }
+
+  ctx.meta.entry = path.resolve(ctx.meta.entry)
+  ctx.meta.cwd = path.dirname(ctx.meta.entry)
 
   const stream = opts.stream ?? process.stdout
 
