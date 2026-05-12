@@ -1,0 +1,82 @@
+# .github/workflows/benchmark.yml
+
+name: Benchmarks
+
+on:
+  schedule:
+    # Runs every day at 02:00 UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch: # allows manual trigger too
+  push:
+    branches:
+      - main
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        concurrency: [4, 8, 16]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build
+        run: yarn build
+
+      - name: System information
+        run: |
+          echo "Node: $(node -v)"
+          echo "CPU cores: $(nproc)"
+          echo "Memory:"
+          free -h
+          echo "Kernel:"
+          uname -a
+
+      - name: Run benchmark
+        env:
+          CONCURRENCY: ${{ matrix.concurrency }}
+          ITEMS: 256
+          ACTIVATIONS: 10000
+        run: node benchmarks/concurrency.js
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ matrix.concurrency }}
+          path: benchmarks/results/**
+
+  merge:
+    needs: benchmark
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: merged
+
+      - name: Repack into single artifact
+        run: |
+          mkdir final
+          mv merged/*/* final/
+
+      - name: Upload merged results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: final/

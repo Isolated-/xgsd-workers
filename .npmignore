@@ -2,6 +2,7 @@
 src/
 tests/
 fixtures/
+benchmarks/
 __tests__/
 *.test.ts
 *.spec.ts

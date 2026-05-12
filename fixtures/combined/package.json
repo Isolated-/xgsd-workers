@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
+  "type": "module",
   "dependencies": {
-    "esbuild": "^0.28.0"
+    "axios": "1.16.0"
   }
 }

@@ -1,13 +1,11 @@
-# @xgsd/workers
+# Workers.js
 
 [![Version](https://img.shields.io/npm/v/@xgsd/workers.svg)](https://npmjs.org/package/@xgsd/workers)  
 [![CI & Release](https://github.com/Isolated-/xgsd-workers/actions/workflows/release.yml/badge.svg)](https://github.com/Isolated-/xgsd-workers/actions/workflows/release.yml)
 
 ---
 
-Make Node.js more predictable and fail-safe with **Workers**.
-
-This is a simplified alternative to the full xGSD runtime — focusing on fast execution, low memory usage, and deterministic behaviour.
+**Workers.js** runs your code in a container that handle most failures for you.
 
 ---
 
@@ -26,12 +24,12 @@ yarn add @xgsd/workers
 A **Worker** is a simple async function, usually exported from `worker.js`:
 
 ```javascript
+import axios from 'axios'
+
 export default async function worker(data) {
-  const url = data.url ?? 'https://timeapi.io/api/Time/current/zone?timeZone=Europe/London'
+  const url = 'https://timeapi.io/api/Time/current/zone?timeZone=Europe/London'
 
-  const res = await fetch(url)
-  const json = await res.json()
-
+  const json = (await axios.get(url)).data
   return json
 }
 ```
@@ -41,23 +39,18 @@ It also contains your middleware.
 Run a worker:
 
 ```javascript
-import {createHandler} from '@xgsd/workers'
+import {createTransport} from '@xgsd/workers'
 
-const handler = createHandler({
-  // you can provide this in handler()
-  // depending on your app
-  cwd: process.cwd(),
-
-  // by default a signals.jsonl is created
-  // if you're developing try:
-  process: process.stdout,
+const transport = createTransport({
+  entry: './worker.js',
 })
 
 // how you expose the handler is up to you
 // this example assumes Express/Koa-style callback
 async function callback(req, res) {
-  return handler({
+  return transport({
     data: req.body,
+    env: {MY_VAR: 'hello world'},
   })
 }
 ```
@@ -82,6 +75,18 @@ Run all tests with:
 ```bash
 yarn test
 ```
+
+---
+
+## Benchmarks
+
+Run benchmarks with:
+
+```bash
+node benchmarks/concurrency.js
+```
+
+Results are saved to `benchmarks/results`.
 
 ---
 

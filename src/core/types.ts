@@ -1,36 +1,4 @@
-/**
- *  WORKER ERROR TYPES
- */
-
-export enum WorkerErrorCode {
-  // thrown when limits exceeded (ttl/memory)
-  CODE_WORKER_GUARD = 'CODE_WORKER_GUARD',
-
-  // generic - something went really really wrong
-  CODE_FATAL_ERROR = 'CODE_FATAL_ERROR',
-
-  // config errors
-  CODE_INVALID_CONFIG = 'CODE_INVALID_CONFIG',
-
-  // thrown when entry file is invalid/cannot be parsed
-  CODE_INVALID_ENTRY_FILE = 'CODE_INVALID_ENTRY_FILE',
-
-  // thrown when default is not a function
-  CODE_INVALID_DEFAULT_FUNCTION = 'CODE_INVALID_DEFAULT_FUNCTION',
-
-  CODE_INVALID_MIDDLEWARE_FUNCTION = 'CODE_INVALID_MIDDLEWARE_FUNCTION',
-
-  // thrown when bundling fails
-  CODE_BUNDLE_ERROR = 'CODE_BUNDLE_ERROR',
-}
-
-export type WorkerErrorType = 'user' | 'system' | 'unknown'
-export type WorkerError = {
-  code?: WorkerErrorCode
-  message?: string
-  stack?: string
-  type?: WorkerErrorType
-}
+import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 
 /**
  *  WORKER RESULT TYPES
@@ -57,32 +25,22 @@ export type WorkerResult<T> =
 /**
  *  WORKER CONFIG TYPES
  */
+export type MemoryType =
+  | number
+  | {
+      limitMB: number
+      strategy: 'rss' | 'heap'
+    }
 
 export type WorkerConfig = {
   entry: string
-  dist?: string
-  bundler?: {
-    enabled?: boolean
-    exclude?: string[]
-    include?: string[]
-    extensions?: string[]
-    cache?: WorkerConfigCache
-  }
-  http?: {
-    cache?: WorkerConfigCache
-  }
   limits?: {
     ttl?: number
-    memory?: number
+    memory?: number | MemoryType
   }
   output?: {
     mode?: 'raw' | 'wrapped' | 'auto' // support more types
   }
-}
-
-export type WorkerConfigCacheStrategy = 'always' | 'change' | 'never'
-export type WorkerConfigCache = {
-  strategy?: WorkerConfigCacheStrategy
 }
 
 export type WorkerOutputMode = 'raw' | 'wrapped' | 'auto'
@@ -91,23 +49,17 @@ export type WorkerOutputMode = 'raw' | 'wrapped' | 'auto'
  *  CONTEXT TYPES
  */
 
+export type WorkerGuardOpts = {
+  ttl: number
+  memory: MemoryType | number
+}
+
 export type ContextMetadata = {
   version: string
   pid?: number
   entry: string
-  dist: string
   cwd: string
-  limits: {
-    ttl: number
-    memory: number
-  }
-  bundler: {
-    enabled: boolean
-    exclude?: string[]
-    include?: string[]
-    extensions?: string[]
-    cache?: WorkerConfigCache
-  }
+  limits: WorkerGuardOpts
   output: {
     mode: WorkerOutputMode
   }
@@ -121,8 +73,8 @@ export type Context<T = unknown, E = any> = {
   execute?: any
   result?: T | null
   error?: E | null
+  state?: Record<string, any>
   meta: ContextMetadata
-  [key: string]: unknown
 }
 
 /**
@@ -136,7 +88,7 @@ export type Activation<T = unknown> = {
   cwd?: string
 }
 
-export type ActivationHandler = <T = unknown>(activation?: Activation<T>) => Promise<WorkerResult<T>>
+export type ActivationHandler = <O = unknown, I = unknown>(activation?: Activation<I>) => Promise<WorkerResult<O>>
 
 /**
  *  SIGNAL TYPES

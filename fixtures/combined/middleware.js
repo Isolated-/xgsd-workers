@@ -1,21 +1,23 @@
 export default async function worker() {}
 
 const middlewareA = async (ctx, next) => {
-  ctx.trace.push('A')
+  ctx.state.trace = []
+
+  ctx.state.trace.push('A')
   await next()
-  ctx.trace.push('A')
+  ctx.state.trace.push('A')
 }
 const middlewareB = async (ctx, next) => {
-  ctx.trace.push('B')
+  ctx.state.trace.push('B')
   await next()
-  ctx.trace.push('B')
+  ctx.state.trace.push('B')
 }
 const middlewareC = async (ctx, next) => {
-  ctx.trace.push('C')
+  ctx.state.trace.push('C')
   await next()
-  ctx.trace.push('C')
+  ctx.state.trace.push('C')
 
-  ctx.result = ctx.trace
+  ctx.result = ctx.state.trace
 }
 
 export const middleware = () => [middlewareA, middlewareB, middlewareC]

@@ -23,13 +23,27 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: yarn
 
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
+      # ----------------------------
+      # Cache fixture node_modules
+      # ----------------------------
+      - name: Cache fixture node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            fixtures/combined/node_modules
+          key: ${{ runner.os }}-fixtures-node-modules-${{ hashFiles('fixtures/**/package.json', 'fixtures/**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-fixtures-node-modules-
+
+      - run: yarn install --frozen-lockfile
+      - run: yarn build
+
+      # ----------------------------
+      # Setup fixtures
+      # ----------------------------
+      - name: combined fixtures
+        working-directory: ./fixtures/combined
+        run: yarn install --production
 
       - name: Run tests
         run: yarn test
-
-      - run: yarn test:integration
-        name: run integration tests
-      - run: yarn test:e2e
-        name: run e2e tests

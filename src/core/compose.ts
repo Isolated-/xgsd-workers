@@ -1,15 +1,14 @@
-import {resolveDependency} from './bundler.js'
 import {Context, WorkerResult} from './types.js'
+import {execute} from '@xgsd/engine'
 
 export type Next = () => Promise<void>
-
 export type Middleware = (ctx: Context, next: Next) => Promise<void>
-
 export type ComposedMiddleware = (ctx: Context) => Promise<WorkerResult<unknown>>
 
 export function compose(middleware: Middleware[]): ComposedMiddleware {
   return async function run(ctx: Context): Promise<WorkerResult<unknown>> {
     let index = -1
+    let start = performance.now()
 
     let res: any = {
       version: 'v1',
@@ -18,8 +17,6 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
       error: undefined,
       duration: undefined,
     }
-
-    const {execute} = resolveDependency('@xgsd/engine', ctx.meta.cwd)
 
     async function dispatch(i: number): Promise<void> {
       if (i <= index) {
@@ -44,6 +41,7 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
 
       const result = await execute(ctx, executeWrapper)
 
+      // clean this up when unit testing
       if (result.error || result.data?.error) {
         res.ok = false
         res.result = null
@@ -53,6 +51,8 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
         res.result = result.data?.result ?? null
         res.error = null
       }
+
+      res.duration = performance.now() - start
     }
 
     await dispatch(0)

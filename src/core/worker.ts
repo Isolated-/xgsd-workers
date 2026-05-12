@@ -1,8 +1,8 @@
 import {fork} from 'child_process'
-import {Context, WorkerError, WorkerErrorCode, WorkerResult} from './types.js'
+import {Context, WorkerGuardOpts, WorkerResult} from './types.js'
+import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 import {createSignalLogger, SignalContext} from './signal.js'
 import {formatWorkerResult} from '../util/format.js'
-import {ensureDirSync} from '../util/fs.js'
 import {fileURLToPath} from 'url'
 
 type ChildMessage<T = unknown> =
@@ -53,9 +53,6 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
     const logger = createSignalLogger(signal)
     logger.system('container manager started')
 
-    ensureDirSync(ctx.meta.dist)
-    logger.system(`found dist`, {dist: ctx.meta.dist})
-
     let completed = false
 
     const cleanup = () => {
@@ -72,8 +69,24 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
     child.stdout?.on('data', collector(signal, 'stdout'))
     child.stderr?.on('data', collector(signal, 'stderr'))
 
+    const throttler = (mem: {rss: number; heap: number}) => {
+      const {memory} = ctx.meta.limits
+      const limitMB = typeof memory === 'number' ? memory : memory.limitMB
+      if (typeof memory === 'number' || memory.strategy === 'heap') {
+        const heapMB = mem.heap / 1024 / 1024
+        return heapMB > limitMB
+      }
+
+      if (memory.strategy !== 'rss') {
+        logger.warn(`"${memory.strategy}" is not a valid strategy, "rss" will be used.`)
+      }
+
+      const rssMB = mem.rss / 1024 / 1024
+      return rssMB > limitMB
+    }
+
     const startGuard = () => {
-      const opts = {child, limits: ctx.meta.limits, signal}
+      const opts = {child, limits: ctx.meta.limits, signal, throttler}
       logger.system('worker guard started')
 
       startWorkerGuard(opts, (reason) => {
@@ -125,6 +138,8 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
         memoryUsage,
         ok: true,
       })
+
+      result.duration = duration
 
       // normal errors are wrapped inside the process
       if (ctx.meta.output.mode === 'raw') {
@@ -180,13 +195,16 @@ export async function runWorker<T>(opts: {ctx: Context<T>; signal: SignalContext
   return containerManager({child, signal, ctx, start})
 }
 
-type WorkerGuardOpts = {
+type Throttler = (memory: {rss: number; heap: number}) => boolean
+
+type GuardOpts = {
   signal: SignalContext
   child: any
-  limits: {ttl: number; memory: number}
+  limits: WorkerGuardOpts
+  throttler: Throttler
 }
 
-function startWorkerGuard(opts: WorkerGuardOpts, suspended?: (reason: WorkerError) => void) {
+function startWorkerGuard(opts: GuardOpts, suspended?: (reason: WorkerError) => void) {
   const {child, signal} = opts
   const {ttl, memory} = opts.limits
 
@@ -228,11 +246,15 @@ function startWorkerGuard(opts: WorkerGuardOpts, suspended?: (reason: WorkerErro
 
     // (v0.1.0) this isn't set in stone
     // may be worth using RSS
-    const heapUsed = msg.memory?.heapUsed ?? 0
-    const memMB = heapUsed / 1024 / 1024
+    // (v1-beta) let caller decide how to throttle
+    const limit = typeof memory === 'number' ? memory : memory.limitMB
+    const shouldThrottle = opts.throttler({
+      rss: msg.memory?.rss,
+      heap: msg.memory?.heapUsed,
+    })
 
-    if (memMB > memory) {
-      kill(`memory limit exceeded: ${memMB.toFixed(2)}MB/${memory.toFixed(2)}MB`)
+    if (shouldThrottle) {
+      kill(`memory limit exceeded (limit: ${limit.toFixed(2)}MB)`)
     }
   })
 
