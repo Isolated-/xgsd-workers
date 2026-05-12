@@ -80,6 +80,18 @@ yarn test
 
 ---
 
+## Benchmarks
+
+Run benchmarks with:
+
+```bash
+node benchmarks/concurrency.js
+```
+
+Results are saved to `benchmarks/results`.
+
+---
+
 ## Versioning
 
 Workers follows Semantic Versioning (SemVer).
