@@ -19,9 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        activations: [1000, 10000]
         concurrency: [4, 8, 16]
-        items: [256, 2048]
 
     steps:
       - name: Checkout
@@ -51,15 +49,15 @@ jobs:
       - name: Run benchmark
         env:
           CONCURRENCY: ${{ matrix.concurrency }}
-          ITEMS: ${{ matrix.items }}
-          ACTIVATIONS: ${{ matrix.activations }}
+          ITEMS: 256
+          ACTIVATIONS: 10000
         run: node benchmarks/concurrency.js
 
       - name: Upload benchmark results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-${{ matrix.activations }}-${{ matrix.concurrency }}-${{ matrix.items }}
+          name: benchmark-${{ matrix.concurrency }}
           path: benchmarks/results/**
 
   merge:

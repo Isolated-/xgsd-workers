@@ -92,7 +92,7 @@ async function main() {
   }
 
   const json = JSON.stringify(analysis, null, 2)
-  writeFileSync(join(RESULTS_DIR, 'analysis.json'), json)
+  writeFileSync(join(BENCHMARKS, 'analysis.json'), json)
 }
 
 main().catch((error) => {
