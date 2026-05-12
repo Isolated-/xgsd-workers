@@ -1,11 +1,11 @@
-# @xgsd/workers
+# Workers.js
 
 [![Version](https://img.shields.io/npm/v/@xgsd/workers.svg)](https://npmjs.org/package/@xgsd/workers)  
 [![CI & Release](https://github.com/Isolated-/xgsd-workers/actions/workflows/release.yml/badge.svg)](https://github.com/Isolated-/xgsd-workers/actions/workflows/release.yml)
 
 ---
 
-Make Node.js more predictable and fail-safe with **Workers**.
+**Workers.js** runs your code in a container that handle most failures for you.
 
 This is a simplified alternative to the full xGSD runtime — focusing on fast execution, low memory usage, and deterministic behaviour.
 
