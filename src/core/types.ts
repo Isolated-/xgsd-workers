@@ -51,6 +51,7 @@ export type ContextMetadata = {
   limits: {
     ttl: number
     memory: number
+    [key: string]: number
   }
   output: {
     mode: WorkerOutputMode

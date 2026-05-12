@@ -3,7 +3,6 @@ import {Context, WorkerResult} from './types.js'
 import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 import {createSignalLogger, SignalContext} from './signal.js'
 import {formatWorkerResult} from '../util/format.js'
-import {ensureDirSync} from '../util/fs.js'
 import {fileURLToPath} from 'url'
 
 type ChildMessage<T = unknown> =
@@ -70,8 +69,13 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
     child.stdout?.on('data', collector(signal, 'stdout'))
     child.stderr?.on('data', collector(signal, 'stderr'))
 
+    const throttler = (memory: any) => {
+      const memMB = memory.rss / 1024 / 1024
+      return memMB > memory.limit
+    }
+
     const startGuard = () => {
-      const opts = {child, limits: ctx.meta.limits, signal}
+      const opts = {child, limits: ctx.meta.limits, signal, throttler}
       logger.system('worker guard started')
 
       startWorkerGuard(opts, (reason) => {
@@ -182,6 +186,7 @@ type WorkerGuardOpts = {
   signal: SignalContext
   child: any
   limits: {ttl: number; memory: number}
+  throttler: (memory: {limit: number; rss: number; heapUsed: number; heapTotal: number; external: number}) => boolean
 }
 
 function startWorkerGuard(opts: WorkerGuardOpts, suspended?: (reason: WorkerError) => void) {
@@ -226,11 +231,17 @@ function startWorkerGuard(opts: WorkerGuardOpts, suspended?: (reason: WorkerErro
 
     // (v0.1.0) this isn't set in stone
     // may be worth using RSS
-    const heapUsed = msg.memory?.heapUsed ?? 0
-    const memMB = heapUsed / 1024 / 1024
+    // (v1-beta) let caller decide how to throttle
+    const shouldThrottle = opts.throttler({
+      rss: msg.memory?.rss,
+      limit: memory,
+      heapUsed: msg.memory?.heapUsed,
+      heapTotal: msg.memory?.heapTotal,
+      external: msg.memory?.external,
+    })
 
-    if (memMB > memory) {
-      kill(`memory limit exceeded: ${memMB.toFixed(2)}MB/${memory.toFixed(2)}MB`)
+    if (shouldThrottle) {
+      kill(`memory limit exceeded (limit: ${memory.toFixed(2)}MB)`)
     }
   })
 

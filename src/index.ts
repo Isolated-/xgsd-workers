@@ -1,10 +1,8 @@
-import {Writable} from 'stream'
-import {WorkerConfig, ActivationHandler, WorkerResult, WorkerOutputMode} from './core/types.js'
+import {ActivationHandler, WorkerResult, WorkerOutputMode} from './core/types.js'
 import {WorkerError, WorkerErrorCode} from './types/error.types.js'
 import {runWorker} from './core/worker.js'
 import {completeWorkerSetupFromConfig} from './util/setup.js'
 import {readFileSync} from 'fs'
-import path from 'path'
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 
@@ -21,6 +19,7 @@ type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
   limits?: {
     ttl?: number
     memory?: number
+    [key: string]: undefined | number
   }
   output?: {
     mode?: Mode
