@@ -96,16 +96,15 @@ async function main(ctx: Context) {
 
   rejectionHandler()
 
-  const {entry, cwd, limits} = ctx.meta
-  let entryFile = join(cwd ?? '', entry)
+  const {entry, limits} = ctx.meta
 
   stdout.log(`container started (pid: ${process.pid})`, {stage: 'runtime', pid: process.pid})
 
   try {
-    if (!(await pathExists(entryFile))) {
+    if (!(await pathExists(entry))) {
       const error: WorkerError = {
         code: WorkerErrorCode.CODE_INVALID_ENTRY_FILE,
-        message: 'entry file not found',
+        message: `entry file "${entry}" not found`,
         type: 'user',
       }
 
@@ -117,11 +116,11 @@ async function main(ctx: Context) {
 
     let mod = undefined
     try {
-      mod = await import(entryFile)
+      mod = await import(entry)
     } catch (error: any) {
       const err: WorkerError = {
         code: WorkerErrorCode.CODE_INVALID_ENTRY_FILE,
-        message: `${entryFile} cannot be loaded, this could mean there's an error in your code.`,
+        message: `${entry} cannot be loaded, this could mean there's an error in your code.`,
         type: 'user',
       }
 
@@ -136,7 +135,7 @@ async function main(ctx: Context) {
     if (!mod.default || typeof mod.default !== 'function') {
       const error: WorkerError = {
         code: WorkerErrorCode.CODE_INVALID_DEFAULT_FUNCTION,
-        message: 'default must be a function',
+        message: `default must be a function (received: ${typeof mod.default})`,
         type: 'user',
       }
 
@@ -184,6 +183,21 @@ async function main(ctx: Context) {
     const ms = performance.now() - start
 
     stdout.log(`worker finished in ${ms.toFixed(2)} ms`, {stage: 'runtime', version, duration: ms})
+
+    // test for bad serialisation
+    try {
+      JSON.stringify({result: ctx.result, error: ctx.error})
+    } catch (e: any) {
+      const error: WorkerError = {
+        code: WorkerErrorCode.CODE_INVALID_DATA,
+        message: `"ctx" is not serialisable, check middleware/worker return values.`,
+        stack: e?.stack,
+      }
+
+      stderr.error(error.message!, error)
+      dispatch('ERROR', {error})
+      return
+    }
 
     if (result.error) {
       stdout.warn(`worker finished with errors (${ctx.error?.code ?? ctx.error?.message ?? 'unknown'})`, {

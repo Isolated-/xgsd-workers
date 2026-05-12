@@ -22,6 +22,9 @@ export function completeWorkerSetupFromConfig(opts: SetupOpts) {
     id: opts.id ?? randomUUID(),
     data: opts.data,
     env: opts.env ?? null,
+    state: {},
+    error: null,
+    result: null,
     meta: {
       cwd: opts.cwd,
       version: version,

@@ -8,6 +8,7 @@ export type ComposedMiddleware = (ctx: Context) => Promise<WorkerResult<unknown>
 export function compose(middleware: Middleware[]): ComposedMiddleware {
   return async function run(ctx: Context): Promise<WorkerResult<unknown>> {
     let index = -1
+    let start = performance.now()
 
     let res: any = {
       version: 'v1',
@@ -50,6 +51,8 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
         res.result = result.data?.result ?? null
         res.error = null
       }
+
+      res.duration = performance.now() - start
     }
 
     await dispatch(0)

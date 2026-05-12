@@ -1,4 +1,6 @@
-export function createLogger(s?: Writable) {
+import {StreamLike} from '../types/stream-like.type.js'
+
+export function createLogger(s?: StreamLike) {
   const stream = s ?? process.stdout
 
   return {

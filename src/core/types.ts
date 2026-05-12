@@ -20,6 +20,10 @@ export enum WorkerErrorCode {
 
   CODE_INVALID_MIDDLEWARE_FUNCTION = 'CODE_INVALID_MIDDLEWARE_FUNCTION',
 
+  CODE_INVALID_DATA = 'CODE_INVALID_DATA',
+
+  CODE_INVALID_ERROR = 'CODE_INVALID_ERROR',
+
   // thrown when bundling fails
   CODE_BUNDLE_ERROR = 'CODE_BUNDLE_ERROR',
 }
@@ -97,8 +101,8 @@ export type Context<T = unknown, E = any> = {
   execute?: any
   result?: T | null
   error?: E | null
+  state?: Record<string, any>
   meta: ContextMetadata
-  [key: string]: unknown
 }
 
 /**
@@ -112,7 +116,7 @@ export type Activation<T = unknown> = {
   cwd?: string
 }
 
-export type ActivationHandler = <T = unknown>(activation?: Activation<T>) => Promise<WorkerResult<T>>
+export type ActivationHandler = <O = unknown, I = unknown>(activation?: Activation<I>) => Promise<WorkerResult<O>>
 
 /**
  *  SIGNAL TYPES
