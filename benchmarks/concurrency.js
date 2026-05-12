@@ -4,7 +4,9 @@ import {mkdirSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {performance} from 'node:perf_hooks'
 import {runWithConcurrency} from '@xgsd/engine'
-import {createHandler} from '@xgsd/workers'
+import {createTransport, version} from '@xgsd/workers'
+
+console.log(`@xgsd/workers version is ${version}`)
 
 const ACTIVATIONS = Number(process.env.ACTIVATIONS ?? 10000)
 const CONCURRENCY = Number(process.env.CONCURRENCY ?? 8)
@@ -17,13 +19,27 @@ const stream = {
   write() {},
 }
 
-const handler = createHandler({
-  cwd: process.cwd(),
-  config: {
-    entry: join('benchmarks', 'worker.js'),
-  },
+const handler = createTransport({
+  entry: 'worker.js',
   stream,
 })
+
+// warmup
+let warmed = 0
+const WARM_UPS = 100
+
+console.log(`warming up with ${WARM_UPS} activations (sequential)`)
+while (warmed < WARM_UPS) {
+  try {
+    await handler()
+  } catch {
+    console.log(`[warm up] count ${warmed} failed`)
+  }
+
+  warmed++
+}
+
+console.log('finished warming up')
 
 const items = Array.from({length: ACTIVATIONS})
 

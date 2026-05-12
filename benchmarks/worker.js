@@ -1,9 +1,26 @@
+const createLargeObject = (count = 10000) => {
+  const items = []
+
+  for (let i = 0; i < count; i++) {
+    items.push({
+      id: i,
+      name: `item-${i}`,
+      description: 'x'.repeat(100),
+      nested: {
+        active: true,
+        tags: ['a', 'b', 'c'],
+      },
+    })
+  }
+
+  return {
+    generatedAt: Date.now(),
+    items,
+  }
+}
+
 export default async function worker(data) {
-  console.log('worker')
-
-  console.log(JSON.stringify({customSignal: true}))
-
-  return data
+  return createLargeObject(5000)
 }
 
 export const a = async (ctx, next) => {
