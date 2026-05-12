@@ -59,5 +59,26 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-results
+          name: benchmark-${{ matrix.activations }}-${{ matrix.concurrency }}-${{ matrix.items }}
           path: benchmarks/results/**
+
+  merge:
+    needs: benchmark
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: merged
+
+      - name: Repack into single artifact
+        run: |
+          mkdir final
+          mv merged/*/* final/
+
+      - name: Upload merged results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: final/
