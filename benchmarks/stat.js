@@ -53,6 +53,17 @@ async function collectFiles(dir) {
   return files.flat()
 }
 
+function getBestAndWorst(rows, key, direction = 'max') {
+  const sorted = [...rows].sort((a, b) => {
+    return direction === 'max' ? b[key] - a[key] : a[key] - b[key]
+  })
+
+  return {
+    concurrency: sorted[0].concurrency,
+    value: sorted[0][key],
+  }
+}
+
 async function main() {
   const files = await collectFiles(RESULTS_DIR)
 
@@ -91,8 +102,21 @@ async function main() {
     analysis[key] = stats(values)
   }
 
+  analysis.concurrency = {
+    bestActivationTime: getBestAndWorst(flattened, 'averageActivationMs', 'min'),
+
+    worstActivationTime: getBestAndWorst(flattened, 'averageActivationMs', 'max'),
+
+    highestThroughput: getBestAndWorst(flattened, 'throughput', 'max'),
+
+    lowestThroughput: getBestAndWorst(flattened, 'throughput', 'min'),
+  }
+
   const json = JSON.stringify(analysis, null, 2)
+
   writeFileSync(join(BENCHMARKS, 'analysis.json'), json)
+
+  console.log(json)
 }
 
 main().catch((error) => {

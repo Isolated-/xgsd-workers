@@ -24,7 +24,7 @@ test.js
 docs/*
 
 benchmarks/**/results
-
+benchmarks/**/analysis.json
 fixtures/**/.xgsd
 fixtures/**/node_modules
 fixtures/**/.benchmark

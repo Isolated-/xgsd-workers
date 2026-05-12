@@ -1,6 +1,6 @@
 {
-  "name": "@xgsd/workers",
-  "description": "Super lightweight alternative to standard xGSD runtime. Optimised for queues/serverless vs project orchestration.",
+  "name": "workersjs",
+  "description": "Workers.js runs your code in a container that handle most failures for you.",
   "version": "1.0.0-beta.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -39,8 +39,7 @@
     "automation",
     "developer tools",
     "workers",
-    "workerjs",
-    "xgsd"
+    "workerjs"
   ],
   "devDependencies": {
     "@oclif/prettier-config": "^0.2.1",
