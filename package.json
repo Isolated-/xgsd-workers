@@ -26,6 +26,22 @@
     "clean": "rm -rf dist",
     "test": "XGSD_NODE_ENV=test vitest"
   },
+  "tags": [
+    "runtime",
+    "execution",
+    "task-runner",
+    "function-execution",
+    "job-runner",
+    "workflow-runtime",
+    "isolated-runtime",
+    "serverless",
+    "local-first",
+    "automation",
+    "developer tools",
+    "workers",
+    "workerjs",
+    "xgsd"
+  ],
   "devDependencies": {
     "@oclif/prettier-config": "^0.2.1",
     "@types/jest": "^30.0.0",
