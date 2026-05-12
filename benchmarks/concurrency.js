@@ -20,13 +20,13 @@ const stream = {
 }
 
 const handler = createTransport({
-  entry: 'worker.js',
+  entry: join(process.cwd(), 'benchmarks', 'worker.js'),
   stream,
 })
 
 // warmup
 let warmed = 0
-const WARM_UPS = 100
+const WARM_UPS = Number(process.env.WARM_UPS ?? Math.floor(ACTIVATIONS / 100))
 
 console.log(`warming up with ${WARM_UPS} activations (sequential)`)
 while (warmed < WARM_UPS) {
@@ -55,11 +55,25 @@ console.log(`activations: ${ACTIVATIONS}`)
 console.log(`concurrency: ${CONCURRENCY}`)
 console.log('')
 
+let dataSize = 0
+
+const RETURNED_OBJECTS = Number(process.env.ITEMS ?? 256)
+
 await runWithConcurrency(items, CONCURRENCY, async (_, __, idx) => {
   const started = performance.now()
 
   try {
-    await handler()
+    const len = Buffer.from(
+      JSON.stringify(
+        await handler({
+          data: {
+            items: RETURNED_OBJECTS,
+          },
+        }),
+      ),
+    ).byteLength
+
+    dataSize = dataSize + len
 
     successful++
   } catch (error) {
@@ -90,6 +104,7 @@ console.log(`failed: ${failed}`)
 console.log(`average activation: ${averageActivation.toFixed(2)}ms`)
 console.log(`total benchmark: ${(benchmarkDuration / 1000).toFixed(2)}s`)
 console.log(`throughput: ${throughput.toFixed(2)} activations/sec`)
+console.log(`total serialised data transferred: ${formatMB(dataSize)} (objects: ${RETURNED_OBJECTS})`)
 
 console.log('')
 console.log('main process memory')
@@ -99,7 +114,7 @@ console.log(`heap used: ${formatMB(memory.heapUsed)}`)
 console.log(`heap total: ${formatMB(memory.heapTotal)}`)
 console.log(`external: ${formatMB(memory.external)}`)
 
-mkdirSync('benchmarks/results', {recursive: true})
+mkdirSync(join('benchmarks', 'results'), {recursive: true})
 
 const result = {
   activations: ACTIVATIONS,
@@ -115,10 +130,11 @@ const result = {
     heapTotal: formatMB(memory.heapTotal),
     external: formatMB(memory.external),
   },
+  dataSize: Number(dataSize.toFixed(2)),
   timestamp: new Date().toISOString(),
 }
 
-const output = join('benchmarks', 'results', `benchmark-${CONCURRENCY}.json`)
+const output = join('benchmarks', 'results', `benchmark-${ACTIVATIONS}-${CONCURRENCY}-${RETURNED_OBJECTS}.json`)
 
 writeFileSync(output, JSON.stringify(result, null, 2))
 

@@ -23,6 +23,8 @@ test.js
 
 docs/*
 
+benchmarks/**/results
+
 fixtures/**/.xgsd
 fixtures/**/node_modules
 fixtures/**/.benchmark

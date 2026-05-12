@@ -1,4 +1,4 @@
-const createLargeObject = (count = 10000) => {
+const createReturnedObjects = (count = 10000) => {
   const items = []
 
   for (let i = 0; i < count; i++) {
@@ -20,7 +20,7 @@ const createLargeObject = (count = 10000) => {
 }
 
 export default async function worker(data) {
-  return createLargeObject(5000)
+  return createReturnedObjects(data?.items ?? 1)
 }
 
 export const a = async (ctx, next) => {
