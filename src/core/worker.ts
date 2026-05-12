@@ -139,6 +139,8 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
         ok: true,
       })
 
+      result.duration = duration
+
       // normal errors are wrapped inside the process
       if (ctx.meta.output.mode === 'raw') {
         resolve(result?.result)

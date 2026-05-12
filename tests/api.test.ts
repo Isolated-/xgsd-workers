@@ -62,6 +62,13 @@ describe('Workers Public API', () => {
     expect(res.duration).toBeGreaterThan(0)
   })
 
+  test('"duration" is the end-to-end activation time', async () => {
+    const {transport} = createTestTransport('benchmark.js')
+
+    const res = await transport()
+    expect(res.duration).toBeGreaterThanOrEqual(30)
+  })
+
   test('entry path must be absolute', async () => {
     const transport = createTransport({
       entry: join(process.cwd(), 'fixtures', 'combined', 'worker.js'),
