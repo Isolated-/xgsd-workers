@@ -25,12 +25,18 @@ export type WorkerResult<T> =
 /**
  *  WORKER CONFIG TYPES
  */
+export type MemoryType =
+  | number
+  | {
+      limitMB: number
+      strategy: 'rss' | 'heap'
+    }
 
 export type WorkerConfig = {
   entry: string
   limits?: {
     ttl?: number
-    memory?: number
+    memory?: number | MemoryType
   }
   output?: {
     mode?: 'raw' | 'wrapped' | 'auto' // support more types
@@ -43,16 +49,17 @@ export type WorkerOutputMode = 'raw' | 'wrapped' | 'auto'
  *  CONTEXT TYPES
  */
 
+export type WorkerGuardOpts = {
+  ttl: number
+  memory: MemoryType | number
+}
+
 export type ContextMetadata = {
   version: string
   pid?: number
   entry: string
   cwd: string
-  limits: {
-    ttl: number
-    memory: number
-    [key: string]: number
-  }
+  limits: WorkerGuardOpts
   output: {
     mode: WorkerOutputMode
   }

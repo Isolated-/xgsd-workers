@@ -1,4 +1,4 @@
-import {ActivationHandler, WorkerResult, WorkerOutputMode} from './core/types.js'
+import {ActivationHandler, WorkerResult, WorkerOutputMode, MemoryType} from './core/types.js'
 import {WorkerError, WorkerErrorCode} from './types/error.types.js'
 import {runWorker} from './core/worker.js'
 import {completeWorkerSetupFromConfig} from './util/setup.js'
@@ -18,8 +18,8 @@ type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
   stream?: StreamLike
   limits?: {
     ttl?: number
-    memory?: number
-    [key: string]: undefined | number
+    memory?: MemoryType
+    [key: string]: undefined | number | MemoryType
   }
   output?: {
     mode?: Mode

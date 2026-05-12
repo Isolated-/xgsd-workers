@@ -1,5 +1,5 @@
 import {fork} from 'child_process'
-import {Context, WorkerResult} from './types.js'
+import {Context, WorkerGuardOpts, WorkerResult} from './types.js'
 import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 import {createSignalLogger, SignalContext} from './signal.js'
 import {formatWorkerResult} from '../util/format.js'
@@ -69,9 +69,20 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
     child.stdout?.on('data', collector(signal, 'stdout'))
     child.stderr?.on('data', collector(signal, 'stderr'))
 
-    const throttler = (memory: any) => {
-      const memMB = memory.rss / 1024 / 1024
-      return memMB > memory.limit
+    const throttler = (mem: {rss: number; heap: number}) => {
+      const {memory} = ctx.meta.limits
+      const limitMB = typeof memory === 'number' ? memory : memory.limitMB
+      if (typeof memory === 'number' || memory.strategy === 'heap') {
+        const heapMB = mem.heap / 1024 / 1024
+        return heapMB > limitMB
+      }
+
+      if (memory.strategy !== 'rss') {
+        logger.warn(`"${memory.strategy}" is not a valid strategy, "rss" will be used.`)
+      }
+
+      const rssMB = mem.rss / 1024 / 1024
+      return rssMB > limitMB
     }
 
     const startGuard = () => {
@@ -182,14 +193,16 @@ export async function runWorker<T>(opts: {ctx: Context<T>; signal: SignalContext
   return containerManager({child, signal, ctx, start})
 }
 
-type WorkerGuardOpts = {
+type Throttler = (memory: {rss: number; heap: number}) => boolean
+
+type GuardOpts = {
   signal: SignalContext
   child: any
-  limits: {ttl: number; memory: number}
-  throttler: (memory: {limit: number; rss: number; heapUsed: number; heapTotal: number; external: number}) => boolean
+  limits: WorkerGuardOpts
+  throttler: Throttler
 }
 
-function startWorkerGuard(opts: WorkerGuardOpts, suspended?: (reason: WorkerError) => void) {
+function startWorkerGuard(opts: GuardOpts, suspended?: (reason: WorkerError) => void) {
   const {child, signal} = opts
   const {ttl, memory} = opts.limits
 
@@ -232,16 +245,14 @@ function startWorkerGuard(opts: WorkerGuardOpts, suspended?: (reason: WorkerErro
     // (v0.1.0) this isn't set in stone
     // may be worth using RSS
     // (v1-beta) let caller decide how to throttle
+    const limit = typeof memory === 'number' ? memory : memory.limitMB
     const shouldThrottle = opts.throttler({
       rss: msg.memory?.rss,
-      limit: memory,
-      heapUsed: msg.memory?.heapUsed,
-      heapTotal: msg.memory?.heapTotal,
-      external: msg.memory?.external,
+      heap: msg.memory?.heapUsed,
     })
 
     if (shouldThrottle) {
-      kill(`memory limit exceeded (limit: ${memory.toFixed(2)}MB)`)
+      kill(`memory limit exceeded (limit: ${limit.toFixed(2)}MB)`)
     }
   })
 

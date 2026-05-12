@@ -231,6 +231,36 @@ describe('Workers Public API', () => {
       expect(res.ok).toBe(false)
       expect(res.error?.code).toBe(WorkerErrorCode.CODE_WORKER_GUARD)
     })
+
+    test('worker guard memory limits can be rss/heap', async () => {
+      const {transport} = createTestTransport('worker.js', {
+        limits: {
+          memory: {
+            limitMB: 10,
+            strategy: 'rss',
+          },
+        },
+      })
+
+      const res = await transport()
+      expect(res.ok).toBe(false)
+      expect(res.error?.code).toBe(WorkerErrorCode.CODE_WORKER_GUARD)
+    })
+
+    test('worker guard memory limits are closer to user code memory usage', async () => {
+      const {transport} = createTestTransport('large.js', {
+        limits: {
+          memory: {
+            limitMB: 2,
+            strategy: 'heap',
+          },
+        },
+      })
+
+      const res = await transport()
+      expect(res.ok).toBe(false)
+      expect(res.error?.code).toBe(WorkerErrorCode.CODE_WORKER_GUARD)
+    })
   })
 
   describe('Signals', () => {
