@@ -27,7 +27,7 @@ A **Worker** is a simple async function, usually exported from `worker.js`:
 
 ```javascript
 export default async function worker(data) {
-  const url = data.url ?? 'https://timeapi.io/api/Time/current/zone?timeZone=Europe/London'
+  const url = 'https://timeapi.io/api/Time/current/zone?timeZone=Europe/London'
 
   const res = await fetch(url)
   const json = await res.json()
@@ -41,23 +41,18 @@ It also contains your middleware.
 Run a worker:
 
 ```javascript
-import {createHandler} from '@xgsd/workers'
+import {createTransport} from '@xgsd/workers'
 
-const handler = createHandler({
-  // you can provide this in handler()
-  // depending on your app
-  cwd: process.cwd(),
-
-  // by default a signals.jsonl is created
-  // if you're developing try:
-  process: process.stdout,
+const transport = createTransport({
+  entry: './worker.js',
 })
 
 // how you expose the handler is up to you
 // this example assumes Express/Koa-style callback
 async function callback(req, res) {
-  return handler({
+  return transport({
     data: req.body,
+    env: {MY_VAR: 'hello world'},
   })
 }
 ```

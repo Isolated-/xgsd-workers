@@ -1,12 +1,6 @@
 import {Writable} from 'stream'
-import {
-  WorkerConfig,
-  WorkerError,
-  WorkerErrorCode,
-  ActivationHandler,
-  WorkerResult,
-  WorkerOutputMode,
-} from './core/types.js'
+import {WorkerConfig, ActivationHandler, WorkerResult, WorkerOutputMode} from './core/types.js'
+import {WorkerError, WorkerErrorCode} from './types/error.types.js'
 import {runWorker} from './core/worker.js'
 import {completeWorkerSetupFromConfig} from './util/setup.js'
 import {readFileSync} from 'fs'

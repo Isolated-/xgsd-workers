@@ -35,7 +35,6 @@ describe('createSignalLogger', () => {
   test('returns a signal logger', () => {
     let messages = []
     const {signal} = completeWorkerSetupFromConfig({
-      cwd: '',
       stream: {
         write: (message: any) => {
           messages.push(message)

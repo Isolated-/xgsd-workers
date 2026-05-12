@@ -1,5 +1,6 @@
 import {fork} from 'child_process'
-import {Context, WorkerError, WorkerErrorCode, WorkerResult} from './types.js'
+import {Context, WorkerResult} from './types.js'
+import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 import {createSignalLogger, SignalContext} from './signal.js'
 import {formatWorkerResult} from '../util/format.js'
 import {ensureDirSync} from '../util/fs.js'

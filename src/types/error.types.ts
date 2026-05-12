@@ -1,0 +1,105 @@
+/**
+ * Error codes used across the worker/runtime boundary.
+ *
+ * These codes are **serialisable** and are used to classify failures
+ * in a consistent way across processes, streams, and transport layers.
+ *
+ * They are intended for:
+ * - Cross-process error handling
+ * - Structured logging / observability
+ * - Debugging runtime failures
+ */
+export enum WorkerErrorCode {
+  /**
+   * ## Guard Violation
+   *
+   * Thrown when execution safety limits are exceeded.
+   *
+   * ### Typical causes:
+   * - TTL (time-to-live) exceeded
+   * - Memory limit breached
+   * - Runtime guard rails triggered
+   */
+  CODE_WORKER_GUARD = 'CODE_WORKER_GUARD',
+
+  /**
+   * ## Fatal Error
+   *
+   * A **non-recoverable** internal runtime error.
+   *
+   * Execution cannot safely continue after this is thrown.
+   */
+  CODE_FATAL_ERROR = 'CODE_FATAL_ERROR',
+
+  /**
+   * ## Invalid Configuration
+   *
+   * Configuration provided to the worker is invalid or malformed.
+   *
+   * ### Examples:
+   * - Missing required fields
+   * - Invalid schema shape
+   * - Unsupported configuration values
+   */
+  CODE_INVALID_CONFIG = 'CODE_INVALID_CONFIG',
+
+  /**
+   * ## Invalid Entry File
+   *
+   * The entry file cannot be resolved, loaded, or parsed.
+   *
+   * ### Common causes:
+   * - File does not exist
+   * - Syntax error in module
+   * - Unsupported module format (CJS/ESM mismatch)
+   */
+  CODE_INVALID_ENTRY_FILE = 'CODE_INVALID_ENTRY_FILE',
+
+  /**
+   * ## Invalid Default Export
+   *
+   * The module `default` export is not a function.
+   *
+   * ### Expected:
+   * ```ts
+   * export default () => {}
+   * ```
+   *
+   * ### Invalid examples:
+   * - Object export
+   * - `null` or `undefined`
+   * - Primitive values
+   */
+  CODE_INVALID_DEFAULT_FUNCTION = 'CODE_INVALID_DEFAULT_FUNCTION',
+
+  /**
+   * ## Invalid Middleware Function
+   *
+   * Middleware provided is not a valid function.
+   *
+   * ### Causes:
+   * - Non-callable middleware
+   * - Incorrect plugin shape
+   */
+  CODE_INVALID_MIDDLEWARE_FUNCTION = 'CODE_INVALID_MIDDLEWARE_FUNCTION',
+
+  /**
+   * ## Invalid Data
+   *
+   * Data cannot be safely serialised for transport.
+   *
+   * ### Common causes:
+   * - Circular references
+   * - Non-serialisable values (e.g. `BigInt`, functions)
+   * - Structured clone incompatibility
+   */
+  CODE_INVALID_DATA = 'CODE_INVALID_DATA',
+}
+
+export type WorkerErrorType = 'user' | 'system' | 'unknown'
+export type WorkerError = {
+  code?: WorkerErrorCode
+  message?: string
+  stack?: string
+  type?: WorkerErrorType
+}

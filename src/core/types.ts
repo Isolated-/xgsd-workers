@@ -1,40 +1,4 @@
-/**
- *  WORKER ERROR TYPES
- */
-
-export enum WorkerErrorCode {
-  // thrown when limits exceeded (ttl/memory)
-  CODE_WORKER_GUARD = 'CODE_WORKER_GUARD',
-
-  // generic - something went really really wrong
-  CODE_FATAL_ERROR = 'CODE_FATAL_ERROR',
-
-  // config errors
-  CODE_INVALID_CONFIG = 'CODE_INVALID_CONFIG',
-
-  // thrown when entry file is invalid/cannot be parsed
-  CODE_INVALID_ENTRY_FILE = 'CODE_INVALID_ENTRY_FILE',
-
-  // thrown when default is not a function
-  CODE_INVALID_DEFAULT_FUNCTION = 'CODE_INVALID_DEFAULT_FUNCTION',
-
-  CODE_INVALID_MIDDLEWARE_FUNCTION = 'CODE_INVALID_MIDDLEWARE_FUNCTION',
-
-  CODE_INVALID_DATA = 'CODE_INVALID_DATA',
-
-  CODE_INVALID_ERROR = 'CODE_INVALID_ERROR',
-
-  // thrown when bundling fails
-  CODE_BUNDLE_ERROR = 'CODE_BUNDLE_ERROR',
-}
-
-export type WorkerErrorType = 'user' | 'system' | 'unknown'
-export type WorkerError = {
-  code?: WorkerErrorCode
-  message?: string
-  stack?: string
-  type?: WorkerErrorType
-}
+import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 
 /**
  *  WORKER RESULT TYPES

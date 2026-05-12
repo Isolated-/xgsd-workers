@@ -1,7 +1,8 @@
 import {join} from 'path'
 import {execute, SourceData} from '@xgsd/engine'
 import {compose, Next} from '../core/compose.js'
-import {Context, WorkerError, WorkerErrorCode} from '../core/types.js'
+import {Context} from '../core/types.js'
+import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 import {pathExists} from '../util/fs.js'
 import {createLogger} from '../core/shared.js'
 
