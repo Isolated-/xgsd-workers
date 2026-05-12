@@ -5,7 +5,7 @@
 
 ---
 
-**Workers.js** runs your code in a container that handle most failures for you.
+**Workers.js** runs your code in a container that handles most failures for you.
 
 ## Install
 

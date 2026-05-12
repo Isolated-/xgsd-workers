@@ -1,6 +1,6 @@
 {
   "name": "@xgsd/workers",
-  "description": "Workers.js runs your code in a container that handle most failures for you.",
+  "description": "Workers.js runs your code in a container that handles most failures for you.",
   "version": "1.0.0-beta.0",
   "type": "module",
   "main": "./dist/index.js",
