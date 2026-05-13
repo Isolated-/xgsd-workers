@@ -50,7 +50,7 @@ export enum WorkerErrorCode {
    *
    * ### Expected:
    * ```ts
-   * export default () => {}
+   * export default async (data) => {}
    * ```
    *
    * ### Invalid examples:
