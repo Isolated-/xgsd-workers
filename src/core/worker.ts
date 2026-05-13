@@ -92,7 +92,7 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
       startWorkerGuard(opts, (reason) => {
         if (completed) return
 
-        const duration = performance.now() - start
+        const duration = Number((performance.now() - start).toFixed(2))
         logger.activation('worker guard suspended activation', {
           version: ctx.meta.version,
           ok: false,
@@ -103,8 +103,7 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
         cleanup()
 
         if (ctx.meta.limits.on === 'throw') {
-          reject({error: reason})
-          return
+          return reject({...reason, stack: null})
         }
 
         resolve(formatWorkerResult({error: reason, duration}))
@@ -145,7 +144,7 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
         ok: true,
       })
 
-      result.duration = duration
+      result.duration = Number(duration.toFixed(2))
 
       // normal errors are wrapped inside the process
       if (ctx.meta.output.mode === 'raw') {
