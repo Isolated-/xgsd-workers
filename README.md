@@ -5,9 +5,7 @@
 
 ---
 
-**Workers.js** runs your code in a container that handle most failures for you.
-
----
+**Workers.js** runs your code in a container that handles most failures for you.
 
 ## Install
 
@@ -145,4 +143,4 @@ You are free to use, modify, distribute, and build on this project, including fo
 
 ## Documentation
 
-Read the [**Documentation**](https://isolated-.github.io/xgsd-userdocs/labs/Workers/overview).
+Read the [**Documentation**](https://docs.xgsd.io).

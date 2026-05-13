@@ -11,17 +11,183 @@ export const version = packageJson.version
 import {StreamLike} from './types/stream-like.type.js'
 export {StreamLike}
 
-type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
+/**
+ * Configuration options for `createTransport()`.
+ *
+ * `CreateTransportOpts` controls how Workers.js loads, executes,
+ * and manages worker activations.
+ *
+ * ---
+ *
+ * ## Entry
+ *
+ * `entry` is the path to the worker entry file.
+ *
+ * Workers should export a default async function:
+ *
+ * ```js
+ * export default async function worker(data) {
+ *   return data
+ * }
+ * ```
+ *
+ * Entry paths are resolved before worker execution begins.
+ *
+ * ---
+ *
+ * ## Streams
+ *
+ * `stream` is used to receive runtime signals emitted by Workers.js.
+ *
+ * Signals may include:
+ *
+ * - lifecycle events
+ * - logs
+ * - runtime/system messages
+ * - structured errors
+ *
+ * Streams only need to implement:
+ *
+ * ```ts
+ * {
+ *   write(chunk): boolean
+ * }
+ * ```
+ *
+ * Example:
+ *
+ * ```ts
+ * createTransport({
+ *   entry: './worker.js',
+ *   stream: process.stdout,
+ * })
+ * ```
+ *
+ * ---
+ *
+ * ## Environment variables
+ *
+ * `env` provides default activation environment variables.
+ *
+ * These values override any activation values.
+ *
+ * Example:
+ *
+ * ```ts
+ * createTransport({
+ *   entry: './worker.js',
+ *   env: {
+ *     region: 'eu-west-1',
+ *   },
+ * })
+ * ```
+ *
+ * ---
+ *
+ * ## Limits
+ *
+ * `limits` configures runtime resource constraints.
+ *
+ * Limits are enforced per worker activation.
+ *
+ * Supported limits:
+ *
+ * - `ttl` → maximum activation runtime in milliseconds
+ * - `memory` → maximum worker memory usage
+ *
+ * Example:
+ *
+ * ```ts
+ * createTransport({
+ *   entry: './worker.js',
+ *   limits: {
+ *     ttl: 5000,
+ *     memory: 128,
+ *   },
+ * })
+ * ```
+ *
+ * ---
+ *
+ * ## Output modes
+ *
+ * Workers.js supports two output modes:
+ *
+ * ### Wrapped mode (default)
+ *
+ * Returns a structured `WorkerResult` response:
+ *
+ * ```json
+ * {
+ *   "version": "v1",
+ *   "ok": true,
+ *   "result": {},
+ *   "error": null
+ * }
+ * ```
+ *
+ * ### Raw mode
+ *
+ * Returns the worker result directly:
+ *
+ * ```ts
+ * createTransport({
+ *   output: {
+ *     mode: 'raw',
+ *   },
+ * })
+ * ```
+ *
+ * Raw mode is useful when Workers.js is being integrated into
+ * existing transports, queues, or RPC systems.
+ *
+ * ---
+ *
+ * @since v1
+ */
+export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
+  /**
+   * Path to the worker entry file.
+   */
   entry: string
-  // take WorkerConfig off API
-  // as apps can really define what that is
+
+  /**
+   * Writable stream used for runtime signals/logs.
+   */
   stream?: StreamLike
+
+  /**
+   * Default activation environment variables.
+   */
+  env?: Record<string, unknown>
+
+  /**
+   * Runtime execution limits.
+   */
   limits?: {
+    /**
+     * Maximum activation runtime in milliseconds.
+     */
     ttl?: number
+
+    /**
+     * Maximum worker memory usage.
+     */
     memory?: MemoryType
+
     [key: string]: undefined | number | MemoryType
   }
+
+  /**
+   * Worker output configuration.
+   */
   output?: {
+    /**
+     * Output mode.
+     *
+     * - `wrapped` → structured WorkerResult response
+     * - `raw` → returns worker result/error directly
+     */
     mode?: Mode
   }
 }
@@ -175,7 +341,7 @@ export function createTransport<Mode extends WorkerOutputMode = 'wrapped'>(
       ...ctx,
       id: activation?.id ?? ctx.id,
       data: activation?.data,
-      env: activation?.env ?? {},
+      env: activation?.env ?? opts.env ?? {},
     }
 
     return runWorker({ctx: activationCtx, signal}) as Promise<WorkerResult<any>>
