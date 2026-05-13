@@ -27,7 +27,7 @@
     "clean": "rm -rf dist",
     "test": "XGSD_NODE_ENV=test vitest"
   },
-  "tags": [
+  "keywords": [
     "runtime",
     "execution",
     "task-runner",
