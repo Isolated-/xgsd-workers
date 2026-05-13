@@ -227,7 +227,11 @@ describe('Workers Public API', () => {
     test('exported default must be a function', async () => {
       const {transport} = createTestTransport('bad.js')
 
-      await expect(transport()).rejects.toThrow()
+      try {
+        await transport()
+      } catch (error: any) {
+        expect(error.code).toBe(WorkerErrorCode.CODE_INVALID_DEFAULT_FUNCTION)
+      }
     })
 
     test('circular payloads are handled predictably', async () => {
@@ -243,6 +247,10 @@ describe('Workers Public API', () => {
 
   /**
    *  Worker Guard
+   *
+   *  @note these should really result in a rejection vs resolved value
+   *  so that all fatal errors are handled the same way
+   *  but that can wait till v1.1+
    */
   describe('Worker Guard', () => {
     test('worker guard suspends processes (ttl)', async () => {
