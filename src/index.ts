@@ -11,11 +11,10 @@ export const version = packageJson.version
 import {StreamLike} from './types/stream-like.type.js'
 export {StreamLike}
 
-type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
+export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
   entry: string
-  // take WorkerConfig off API
-  // as apps can really define what that is
   stream?: StreamLike
+  env?: Record<string, unknown>
   limits?: {
     ttl?: number
     memory?: MemoryType
@@ -175,7 +174,7 @@ export function createTransport<Mode extends WorkerOutputMode = 'wrapped'>(
       ...ctx,
       id: activation?.id ?? ctx.id,
       data: activation?.data,
-      env: activation?.env ?? {},
+      env: activation?.env ?? opts.env ?? {},
     }
 
     return runWorker({ctx: activationCtx, signal}) as Promise<WorkerResult<any>>
