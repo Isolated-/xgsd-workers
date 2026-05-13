@@ -121,12 +121,14 @@ async function main(ctx: Context) {
     } catch (error: any) {
       const err: WorkerError = {
         code: WorkerErrorCode.CODE_INVALID_ENTRY_FILE,
-        message: `${entry} cannot be loaded, this could mean there's an error in your code.`,
+        message: `${entry} cannot be loaded because there's an error in your code.\nError: "${error?.message ?? 'unknown - check logs'}"`,
         type: 'user',
+        stack: error.stack,
       }
 
-      stderr.error(error?.message ?? 'unknown', {
-        stack: error?.stack ?? 'unknown',
+      stderr.error(`(${err.code}) ${err.message}`, {
+        code: err.code,
+        stack: err.stack,
       })
 
       dispatch('ERROR', {error: err, original: JSON.stringify(error)})

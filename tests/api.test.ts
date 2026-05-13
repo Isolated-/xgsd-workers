@@ -200,6 +200,30 @@ describe('Workers Public API', () => {
       expect(signals.length).toBeGreaterThan(0)
     })
 
+    test('entry file errors (from parsing) reveal debug info', async () => {
+      const {transport, stream} = createTestTransport('invalid-code.js')
+
+      try {
+        await transport()
+      } catch (error: any) {
+        const {code, message, type, stack} = error
+
+        expect(code).toBe(WorkerErrorCode.CODE_INVALID_ENTRY_FILE)
+        expect(type).toBe('user')
+        expect(message).toContain('Unexpected reserved word')
+        expect(stack).toContain('Unexpected reserved word')
+
+        // signals should contain a trace too
+        const signal = stream
+          .finish()
+          .filter((signal) => signal.type === 'error')
+          .pop()
+
+        expect(signal.message).toContain('Unexpected reserved word')
+        expect(signal.meta.stack).toEqual(stack)
+      }
+    })
+
     test('exported default must be a function', async () => {
       const {transport} = createTestTransport('bad.js')
 
