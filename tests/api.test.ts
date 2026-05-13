@@ -238,10 +238,33 @@ describe('Workers Public API', () => {
       const {transport} = createTestTransport('large-circular.js')
 
       try {
-        await transport()
+        const result = await transport()
+        expect(result).toBeUndefined()
       } catch (error: any) {
         expect(error.code).toBe(WorkerErrorCode.CODE_INVALID_DATA)
       }
+    })
+
+    describe('output.onError', () => {
+      test('onError: drop should drop values (result = null)', async () => {
+        const {transport, stream} = createTestTransport('large-circular.js', {
+          output: {
+            onError: 'drop',
+          },
+        })
+
+        const result = await transport()
+        expect(result.ok).toBe(true)
+        expect(result.result).toBe(null)
+
+        const signal = stream
+          .finish()
+          .filter((s: any) => s.type === 'warn')
+          .pop()
+
+        expect(signal.meta.code).toBe(WorkerErrorCode.CODE_INVALID_DATA)
+        expect(signal.message).toContain('ctx.result has been set to null')
+      })
     })
   })
 
@@ -251,13 +274,14 @@ describe('Workers Public API', () => {
    *  @note these should really result in a rejection vs resolved value
    *  so that all fatal errors are handled the same way
    *  but that can wait till v1.1+
+   *
    */
   describe('Worker Guard', () => {
     test('worker guard rejects promise with limits.on: throw', async () => {
       const {transport, stream} = createTestTransport('worker.js', {
         limits: {
           ttl: 1,
-          on: 'throw',
+          onError: 'throw',
         },
       })
 

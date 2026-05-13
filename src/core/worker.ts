@@ -102,7 +102,7 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
 
         cleanup()
 
-        if (ctx.meta.limits.on === 'throw') {
+        if (ctx.meta.limits.onError === 'throw') {
           return reject({...reason, stack: null})
         }
 

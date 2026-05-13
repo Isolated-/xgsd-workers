@@ -38,26 +38,46 @@ export type WorkerOutputMode = 'raw' | 'wrapped' | 'auto'
  *  CONTEXT TYPES
  */
 
+export type GuardErrorBehaviour = Exclude<ErrorBehaviour, 'warn' | 'drop'>
+
 export type WorkerGuardOpts = {
   ttl: number
   memory: MemoryType | number
 
   /**
-   *  @since v1.0.3
-   *  throws fatal error vs resolving
+   * Determines what happens when
+   * a worker guard suspends a process.
+   *
+   * @since v1.0.3
    */
-  on?: 'throw' | undefined
+  onError?: Exclude<ErrorBehaviour, 'drop'>
 }
+
+export type WorkerOutputOpts = {
+  mode: WorkerOutputMode
+
+  /**
+   * Determines what happens when
+   * a returned data is not serialisable.
+   *
+   * @since v1.0.3
+   */
+  onError?: ErrorBehaviour
+}
+
+export type ErrorBehaviour = undefined | 'throw' | 'drop'
 
 export type ContextMetadata = {
   version: string
+  /**
+   *  @note every signal should have a pid
+   *  this allows for detection of hanging processes
+   */
   pid?: number
   entry: string
   cwd: string
   limits: WorkerGuardOpts
-  output: {
-    mode: WorkerOutputMode
-  }
+  output: WorkerOutputOpts
 }
 
 export type Context<T = unknown, E = any> = {

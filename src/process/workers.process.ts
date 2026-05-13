@@ -198,9 +198,17 @@ async function main(ctx: Context) {
         stack: e?.stack,
       }
 
-      stderr.error(error.message!, error)
-      dispatch('ERROR', {error})
-      return
+      const {onError} = ctx.meta.output
+      if (!onError || onError === 'throw') {
+        stderr.error(error.message!, error)
+        dispatch('ERROR', {error})
+        return
+      }
+
+      if (onError === 'drop') {
+        stdout.warn(`ctx.result has been set to null as "ctx" is not serialisable`, error)
+        result.result = null
+      }
     }
 
     if (result.error) {
