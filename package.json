@@ -23,6 +23,7 @@
   ],
   "scripts": {
     "build": "yarn clean && tsup",
+    "docs": "typedoc",
     "clean": "rm -rf dist",
     "test": "XGSD_NODE_ENV=test vitest"
   },
