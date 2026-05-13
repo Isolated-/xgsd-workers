@@ -5,10 +5,6 @@ export const DEFAULTS = {
     ttl: 5000,
     memory: 64,
   },
-  bundler: {
-    enabled: false,
-    include: ['worker.js'],
-  },
   output: {
     mode: 'wrapped' as WorkerOutputMode,
   },

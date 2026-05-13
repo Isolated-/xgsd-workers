@@ -253,6 +253,26 @@ describe('Workers Public API', () => {
    *  but that can wait till v1.1+
    */
   describe('Worker Guard', () => {
+    test('worker guard rejects promise with limits.on: throw', async () => {
+      const {transport, stream} = createTestTransport('worker.js', {
+        limits: {
+          ttl: 1,
+          on: 'throw',
+        },
+      })
+
+      // promise is rejected vs resolved
+      await expect(transport()).rejects.toThrow()
+
+      // error trace is still in signals
+      const signal = stream
+        .finish()
+        .filter((s: any) => s.type === 'error')
+        .pop()
+
+      expect(signal.meta.code).toBe(WorkerErrorCode.CODE_WORKER_GUARD)
+    })
+
     test('worker guard suspends processes (ttl)', async () => {
       const {transport} = createTestTransport('worker.js', {
         limits: {ttl: 1},

@@ -101,6 +101,12 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
         })
 
         cleanup()
+
+        if (ctx.meta.limits.on === 'throw') {
+          reject({error: reason})
+          return
+        }
+
         resolve(formatWorkerResult({error: reason, duration}))
       })
     }
@@ -156,7 +162,7 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
       if (msg.type === 'DONE') return finish(msg)
       if (msg.type === 'ERROR') return fatal(msg)
 
-      logger.warn(`unknown message type ${(msg as any).type}0`)
+      logger.warn(`unknown message type ${(msg as any).type}`)
     })
   })
 }

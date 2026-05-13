@@ -52,6 +52,12 @@ export type WorkerOutputMode = 'raw' | 'wrapped' | 'auto'
 export type WorkerGuardOpts = {
   ttl: number
   memory: MemoryType | number
+
+  /**
+   *  @since v1.0.3
+   *  throws fatal error vs resolving
+   */
+  on?: 'throw' | undefined
 }
 
 export type ContextMetadata = {

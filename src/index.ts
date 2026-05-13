@@ -175,7 +175,13 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
      */
     memory?: MemoryType
 
-    [key: string]: undefined | number | MemoryType
+    /**
+     *  added in v1.0.3
+     *  when worker guard is triggered promise will be rejected vs resolved
+     */
+    on?: 'throw'
+
+    [key: string]: undefined | number | MemoryType | string
   }
 
   /**
