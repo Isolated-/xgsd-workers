@@ -143,4 +143,4 @@ You are free to use, modify, distribute, and build on this project, including fo
 
 ## Documentation
 
-Read the [**Documentation**](https://isolated-.github.io/xgsd-userdocs/labs/Workers/overview).
+Read the [**Documentation**](https://docs.xgsd.io).
