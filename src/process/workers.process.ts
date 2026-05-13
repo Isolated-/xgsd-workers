@@ -1,6 +1,6 @@
 import {join} from 'path'
 import {execute, SourceData} from '@xgsd/engine'
-import {compose, Next} from '../core/compose.js'
+import {compose, Middleware, Next, UserMiddlewareFn} from '../core/compose.js'
 import {Context} from '../core/types.js'
 import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 import {pathExists} from '../util/fs.js'
@@ -147,10 +147,11 @@ async function main(ctx: Context) {
     }
 
     // load middleware
-    let middleware = []
+    let middleware: Middleware[] = []
     if (mod.middleware && typeof mod.middleware === 'function') {
+      const middlewareFn = mod.middleware as UserMiddlewareFn
       const start = performance.now()
-      middleware = mod.middleware() ?? []
+      middleware = (await middlewareFn()) ?? []
 
       if (!Array.isArray(middleware) || middleware.filter((m) => typeof m !== 'function').length > 0) {
         const error: WorkerError = {

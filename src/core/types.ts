@@ -32,17 +32,6 @@ export type MemoryType =
       strategy: 'rss' | 'heap'
     }
 
-export type WorkerConfig = {
-  entry: string
-  limits?: {
-    ttl?: number
-    memory?: number | MemoryType
-  }
-  output?: {
-    mode?: 'raw' | 'wrapped' | 'auto' // support more types
-  }
-}
-
 export type WorkerOutputMode = 'raw' | 'wrapped' | 'auto'
 
 /**

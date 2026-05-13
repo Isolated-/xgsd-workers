@@ -3,6 +3,8 @@ import {execute} from '@xgsd/engine'
 
 export type Next = () => Promise<void>
 export type Middleware = (ctx: Context, next: Next) => Promise<void>
+export type UserMiddlewareFn = () => Promise<Middleware[]> | Middleware[]
+
 export type ComposedMiddleware = (ctx: Context) => Promise<WorkerResult<unknown>>
 
 export function compose(middleware: Middleware[]): ComposedMiddleware {
