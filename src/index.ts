@@ -8,6 +8,7 @@ import {
   MemoryType,
   ErrorBehaviour,
   GuardErrorBehaviour,
+  TransportResult,
 } from './core/types.js'
 import {runWorker} from './core/worker.js'
 import {completeWorkerSetupFromConfig} from './util/setup.js'
@@ -384,9 +385,9 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
  *
  * @since v1
  */
-export function createTransport<Mode extends WorkerOutputMode = 'wrapped'>(
+export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>(
   opts: CreateTransportOpts<Mode>,
-): ActivationHandler {
+): ActivationHandler<Mode> {
   const {limits, entry, output} = opts
   const stream = opts.stream
 
@@ -396,9 +397,12 @@ export function createTransport<Mode extends WorkerOutputMode = 'wrapped'>(
     output,
   }
 
-  const {ctx, signal} = completeWorkerSetupFromConfig({config, stream})
+  const {ctx, signal} = completeWorkerSetupFromConfig({
+    config,
+    stream,
+  })
 
-  return async function handle(activation) {
+  const handle: ActivationHandler<Mode> = async (activation) => {
     const activationCtx = {
       ...ctx,
       id: activation?.id ?? ctx.id,
@@ -406,6 +410,11 @@ export function createTransport<Mode extends WorkerOutputMode = 'wrapped'>(
       env: activation?.env ?? opts.env ?? {},
     }
 
-    return runWorker({ctx: activationCtx, signal}) as Promise<WorkerResult<any>>
+    return runWorker({
+      ctx: activationCtx,
+      signal,
+    }) as Promise<any>
   }
+
+  return handle
 }

@@ -1,3 +1,4 @@
+import {RunFn} from '../process/workers.process.js'
 import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 
 /**
@@ -85,7 +86,7 @@ export type Context<T = unknown, E = any> = {
   data: T | null
   env: Record<string, any> | null
   // define this
-  execute?: any
+  execute?: (fn: RunFn<T>) => Promise<any>
   result?: T | null
   error?: E | null
   state?: Record<string, any>
@@ -103,7 +104,12 @@ export type Activation<T = unknown> = {
   cwd?: string
 }
 
-export type ActivationHandler = <O = unknown, I = unknown>(activation?: Activation<I>) => Promise<WorkerResult<O>>
+//export type ActivationHandler = <O = unknown, I = unknown>(activation?: Activation<I>) => Promise<WorkerResult<O>>
+export type ActivationHandler<Mode extends WorkerOutputMode = 'wrapped'> = <T = any>(
+  activation?: Activation<T>,
+) => Promise<TransportResult<Mode, T>>
+
+export type TransportResult<Mode extends WorkerOutputMode, T = unknown> = Mode extends 'raw' ? T : WorkerResult<T>
 
 /**
  *  SIGNAL TYPES

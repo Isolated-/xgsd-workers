@@ -46,7 +46,7 @@ function collector(signal: SignalContext, type: 'stdout' | 'stderr') {
   }
 }
 
-function containerManager(opts: {child: any; signal: SignalContext; ctx: Context; start: number}) {
+function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Context<T>; start: number}) {
   const {child, signal, ctx, start} = opts
 
   return new Promise((resolve, reject) => {
@@ -177,7 +177,7 @@ function resolveProcessPath() {
   return path
 }
 
-export async function runWorker<T>(opts: {ctx: Context<T>; signal: SignalContext}) {
+export async function runWorker<T = any>(opts: {ctx: Context<T>; signal: SignalContext}) {
   const start = performance.now()
   const {ctx, signal} = opts
 
@@ -197,7 +197,7 @@ export async function runWorker<T>(opts: {ctx: Context<T>; signal: SignalContext
     },
   })
 
-  return containerManager({child, signal, ctx, start})
+  return containerManager<T>({child, signal, ctx, start})
 }
 
 type Throttler = (memory: {rss: number; heap: number}) => boolean

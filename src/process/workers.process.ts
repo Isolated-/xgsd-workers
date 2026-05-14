@@ -73,7 +73,7 @@ function startHeartbeat(interval = 50) {
 }
 
 export function wrapper(fn: RunFn<unknown>) {
-  return async (ctx: Context, next: Next) => {
+  return async (ctx: Context<any>, next: Next) => {
     if (ctx.execute) {
       const result = await ctx.execute(fn)
 
