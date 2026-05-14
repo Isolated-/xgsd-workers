@@ -237,6 +237,13 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
     [key: string]: unknown
   }
 
+  console?:
+    | 'debug'
+    | 'default'
+    | {
+        mode: 'debug' | 'default'
+      }
+
   /**
    * Worker output configuration.
    */
@@ -430,10 +437,13 @@ export function createTransport<
       version,
     })
 
+    const consoleMode = typeof opts.console === 'string' ? opts.console : opts.console?.mode
+
     try {
       const result = (await runWorker({
         ctx: activationCtx,
         signal,
+        mode: consoleMode,
       })) as any
 
       // activation record

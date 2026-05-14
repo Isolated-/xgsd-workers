@@ -318,6 +318,7 @@ describe('Workers Public API (v1.0.0)', () => {
           .filter((s: any) => s.type === 'warn')
           .pop()
 
+        expect(signal).toBeDefined()
         expect(signal.meta.code).toBe(WorkerErrorCode.CODE_INVALID_DATA)
         expect(signal.message).toContain('"ctx.result" has been set to null')
       })
