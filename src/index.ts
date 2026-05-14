@@ -26,6 +26,7 @@ import {
   SignalType,
 } from './types/signal.types.js'
 import {randomUUID} from 'crypto'
+import {createSignalContext} from './core/signal.js'
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 export const version = packageJson.version
@@ -390,7 +391,7 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
   opts: CreateTransportOpts<Mode>,
 ): ActivationHandler<Mode> {
   const {limits, entry, output} = opts
-  const stream = opts.stream
+  const stream = opts.stream ?? process.stdout
 
   const config = {
     entry,
@@ -398,7 +399,7 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
     output,
   } as CreateTransportOpts
 
-  const {ctx, signal} = completeWorkerSetupFromConfig({stream, config})
+  const {ctx} = completeWorkerSetupFromConfig({stream, config})
 
   const handle: ActivationHandler<Mode> = async (activation) => {
     const activationCtx = {
@@ -410,7 +411,7 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
 
     return runWorker({
       ctx: activationCtx,
-      signal,
+      signal: createSignalContext({ctx: activationCtx, stream}),
     }) as Promise<any>
   }
 
