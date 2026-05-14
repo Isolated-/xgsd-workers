@@ -228,8 +228,8 @@ describe('Workers Public API (v1.0.0)', () => {
       const {transport} = createTestTransport('circular-middleware-fix.js')
 
       const res = await transport()
-      console.log(res)
-      expect(res.result).toEqual({fixed: true})
+      expect(res.result.self).toBeUndefined()
+      expect(res.result.items).toHaveLength(2000)
     })
   })
 

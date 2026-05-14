@@ -31,7 +31,8 @@ export default async () => {
 const transformer = async (ctx, next) => {
   await next()
 
-  ctx.result = {fixed: true}
+  const {self, ...rest} = ctx.result
+  ctx.result = rest
 }
 
 export const middleware = async () => [transformer]
