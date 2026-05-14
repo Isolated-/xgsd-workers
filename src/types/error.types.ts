@@ -11,6 +11,13 @@
  */
 export enum WorkerErrorCode {
   /**
+   * ## Worker aborted
+   *
+   * Thrown when user forces process to exit (CTRL+C)
+   */
+  CODE_WORKER_ABORTED = 'CODE_WORKER_ABORTED',
+
+  /**
    * ## Guard Violation
    *
    * Thrown when execution safety limits are exceeded.

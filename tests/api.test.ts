@@ -263,7 +263,7 @@ describe('Workers Public API', () => {
           .pop()
 
         expect(signal.meta.code).toBe(WorkerErrorCode.CODE_INVALID_DATA)
-        expect(signal.message).toContain('ctx.result has been set to null')
+        expect(signal.message).toContain('"ctx.result" has been set to null')
       })
     })
   })

@@ -395,12 +395,9 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
     entry,
     limits,
     output,
-  }
+  } as CreateTransportOpts
 
-  const {ctx, signal} = completeWorkerSetupFromConfig({
-    config,
-    stream,
-  })
+  const {ctx, signal} = completeWorkerSetupFromConfig({stream, config})
 
   const handle: ActivationHandler<Mode> = async (activation) => {
     const activationCtx = {

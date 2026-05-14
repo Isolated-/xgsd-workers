@@ -7,7 +7,6 @@ export type SignalType = 'log' | 'error' | 'activation' | 'system' | 'generic' |
 
 export type Signal<T extends Record<string, unknown>> = {
   ctx: string
-  // TODO: implement this so that all signals contain a pid
   pid?: number
   type: SignalType
   message: string
@@ -16,6 +15,7 @@ export type Signal<T extends Record<string, unknown>> = {
 }
 
 export type GenericSignal = {
+  tag?: string
   [key: string]: unknown
 }
 

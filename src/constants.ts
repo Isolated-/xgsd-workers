@@ -11,4 +11,7 @@ export const DEFAULTS = {
   signalPathRelative: 'signals.jsonl',
   distPathRelative: '.xgsd',
   entryFileRelative: 'worker.js',
+  // amount of milliseconds before a process
+  // is killed vs disconnected (child.kill())
+  defaultTerminationTime: 1000,
 }
