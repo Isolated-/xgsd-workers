@@ -200,7 +200,7 @@ describe('Workers Public API (v1.0.0)', () => {
     test('class instances degrade into serializable objects', async () => {
       const {transport} = createTestTransport('unsupported.js')
 
-      const res = await transport<any>()
+      const res = await transport()
 
       expect(res.ok).toBe(true)
       expect(res.result).toEqual({name: 'MyInstance', description: 'something about MyInstance'})

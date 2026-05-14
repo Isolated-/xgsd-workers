@@ -164,7 +164,7 @@ type CheckSerialisationOpts<T> = {
 export function completeSerialisationCheck<T>(opts: CheckSerialisationOpts<T>): T | undefined | null {
   const {data, onError, stderr, property} = opts
   try {
-    if (data === undefined) {
+    if (data === undefined || data === null) {
       return null
     }
 

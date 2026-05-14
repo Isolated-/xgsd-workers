@@ -94,33 +94,6 @@ async function runtime<T>(opts: RuntimeOpts<T>) {
 
     stdout.log(`worker finished in ${duration.toFixed(2)} ms`, {duration, tag: 'debug'})
 
-    async function wrapper(property: 'result' | 'error') {
-      try {
-        return completeSerialisationCheck({
-          data: ctx[property],
-          onError: ctx.meta?.output?.onError,
-          stderr,
-          property,
-        })
-      } catch (error) {
-        throw error
-      }
-    }
-
-    try {
-      result.error = await wrapper('error')
-      result.result = await wrapper('result')
-    } catch (error) {
-      return err(error)
-    }
-
-    // note: this could resolve vs reject
-    // that covers passthrough use cases where the user
-    // may not be responsible for the circular/unserialisable data
-    if (result.error?.code === WorkerErrorCode.CODE_INVALID_DATA) {
-      return err(result.error)
-    }
-
     const after = memorySnapshot()
     stdout.log(`container memory usage at end ${after.rss} MB (heap: ${after.heapUsed}MB/${after.heapTotal}MB)`, {
       workers: version,
@@ -130,7 +103,24 @@ async function runtime<T>(opts: RuntimeOpts<T>) {
       tag: 'debug',
     })
 
-    return done(result)
+    stdout.log(`ensuring data can be safely serialised`)
+
+    try {
+      const {onError} = ctx.meta.output
+      let res = {
+        ...result,
+        result: completeSerialisationCheck({
+          data: result.result,
+          onError,
+          property: 'result',
+          stderr,
+        }),
+      }
+
+      return done(res)
+    } catch (error) {
+      return err(error)
+    }
   } finally {
     clearInterval(heartbeat)
   }
