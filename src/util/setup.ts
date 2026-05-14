@@ -1,9 +1,9 @@
 import {DEFAULTS} from '../constants.js'
 import {createSignalContext} from '../core/signal.js'
-import {Context, WorkerConfig} from '../core/types.js'
+import {Context} from '../core/types.js'
 import {randomUUID} from 'crypto'
 import {normaliseSignal} from './format.js'
-import {version} from '../index.js'
+import {CreateTransportOpts, version} from '../index.js'
 import {StreamLike} from '../types/stream-like.type.js'
 import path from 'path'
 
@@ -12,7 +12,7 @@ type SetupOpts = {
   data?: Record<string, any> | null
   env?: Record<string, any>
   stream?: StreamLike
-  config?: WorkerConfig
+  config?: CreateTransportOpts
 }
 
 export function completeWorkerSetupFromConfig(opts: SetupOpts) {
