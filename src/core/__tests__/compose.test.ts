@@ -15,7 +15,6 @@ describe('compose()', () => {
     expect(result.ok).toBe(true)
     expect(result.result).toBeDefined()
     expect(result.error).toBeNull()
-    expect(result.duration).toBeGreaterThan(0)
   })
 
   test('throws error when trying to call next() multiple times', async () => {

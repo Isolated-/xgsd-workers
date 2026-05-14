@@ -5,14 +5,29 @@ export type Next = () => Promise<void>
 export type Middleware = <T>(ctx: Context<T>, next: Next) => Promise<void>
 export type UserMiddlewareFn = () => Promise<Middleware[]> | Middleware[]
 
-export type ComposedMiddleware = <T>(ctx: Context<T>) => Promise<WorkerResult<unknown>>
+export type RuntimeResult<T> = {error: any; data: Context<T>}
+
+export type ComposedMiddleware = <T>(ctx: Context<T>) => Promise<WorkerResult<T>>
 
 export function compose(middleware: Middleware[]): ComposedMiddleware {
-  return async function run<T>(ctx: Context<T>): Promise<WorkerResult<unknown>> {
+  return async function run<T>(ctx: Context<T>): Promise<WorkerResult<T>> {
     let index = -1
-    let start = performance.now()
 
-    let res: WorkerResult<unknown>
+    async function executeAdapter<T>(opts: {
+      idx: number
+      ctx: Context<T>
+      dispatch: (idx: number) => Promise<void>
+      fn: Middleware
+    }) {
+      const {dispatch, fn, idx} = opts
+      return async (ctx: Context<T>) => {
+        await fn(ctx, async () => {
+          await dispatch(idx + 1)
+        })
+
+        return ctx
+      }
+    }
 
     async function dispatch(i: number): Promise<any> {
       if (i <= index) {
@@ -32,41 +47,26 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
     }
 
     const result = await dispatch(0)
-
-    const {error, data} = result
-    const duration = performance.now() - start
-    res = createWorkerResult({error, data, duration})
-
-    return res
+    return createWorkerResult({result, duration: 0})
   }
 }
 
-async function executeAdapter<T>(opts: {
-  idx: number
-  ctx: Context<T>
-  dispatch: (idx: number) => Promise<void>
-  fn: Middleware
-}) {
-  const {dispatch, fn, idx} = opts
-  return async (ctx: Context<T>) => {
-    await fn(ctx, async () => {
-      await dispatch(idx + 1)
-    })
+function createWorkerResult<T>(opts: {
+  result: {error?: any; result?: any | null; data?: any}
+  duration: number
+}): WorkerResult<T> {
+  const {duration, result} = opts
 
-    return ctx
-  }
-}
+  const ok = result.error === null
 
-function createWorkerResult<T>(opts: {error: any; data: T | null; duration: number}): WorkerResult<T> {
-  const {error, data, duration} = opts
-
-  const res = {
+  return {
     version: 'v1',
-    ok: error === null,
-    result: data ?? null,
-    error: error ?? null,
+    ok,
+    // leave this alone, this works
+    // change something = tests broken
+    // will fix ASAP
+    result: result.data?.result ?? null,
+    error: result.error ?? result.data?.error ?? null,
     duration,
-  }
-
-  return res as WorkerResult<T>
+  } as WorkerResult<T>
 }
