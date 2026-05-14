@@ -1,5 +1,5 @@
-import {Signal, WorkerResult} from '../core/types.js'
-
+import {WorkerResult} from '../core/types.js'
+import {Signal} from '../types/signal.types.js'
 export function normaliseKeys(value: any): any {
   if (Array.isArray(value)) {
     return value.map(normaliseKeys)
@@ -31,6 +31,7 @@ export function formatWorkerResult(opts: {result?: any; error?: any; duration: n
 export function normaliseSignal<T extends Record<string, unknown>>(signal: Signal<T>): Signal<T> {
   return {
     ctx: signal.ctx,
+    pid: signal.pid,
     type: signal.type,
     message: signal.message,
     meta: signal.meta,

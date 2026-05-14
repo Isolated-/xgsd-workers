@@ -1,5 +1,7 @@
 import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 
+export type RunFn<T, R = T> = (data: T) => Promise<T>
+
 /**
  *  WORKER RESULT TYPES
  */
@@ -32,37 +34,52 @@ export type MemoryType =
       strategy: 'rss' | 'heap'
     }
 
-export type WorkerConfig = {
-  entry: string
-  limits?: {
-    ttl?: number
-    memory?: number | MemoryType
-  }
-  output?: {
-    mode?: 'raw' | 'wrapped' | 'auto' // support more types
-  }
-}
-
 export type WorkerOutputMode = 'raw' | 'wrapped' | 'auto'
 
 /**
  *  CONTEXT TYPES
  */
 
+export type GuardErrorBehaviour = Exclude<ErrorBehaviour, 'warn' | 'drop'>
+
 export type WorkerGuardOpts = {
   ttl: number
   memory: MemoryType | number
+
+  /**
+   * Determines what happens when
+   * a worker guard suspends a process.
+   *
+   * @since v1.0.3
+   */
+  onError?: Exclude<ErrorBehaviour, 'drop'>
 }
+
+export type WorkerOutputOpts = {
+  mode: WorkerOutputMode
+
+  /**
+   * Determines what happens when
+   * a returned data is not serialisable.
+   *
+   * @since v1.0.3
+   */
+  onError?: ErrorBehaviour
+}
+
+export type ErrorBehaviour = undefined | 'throw' | 'drop'
 
 export type ContextMetadata = {
   version: string
+  /**
+   *  @note every signal should have a pid
+   *  this allows for detection of hanging processes
+   */
   pid?: number
   entry: string
   cwd: string
   limits: WorkerGuardOpts
-  output: {
-    mode: WorkerOutputMode
-  }
+  output: WorkerOutputOpts
 }
 
 export type Context<T = unknown, E = any> = {
@@ -70,7 +87,7 @@ export type Context<T = unknown, E = any> = {
   data: T | null
   env: Record<string, any> | null
   // define this
-  execute?: any
+  execute?: (fn: RunFn<T>) => Promise<any>
   result?: T | null
   error?: E | null
   state?: Record<string, any>
@@ -88,7 +105,12 @@ export type Activation<T = unknown> = {
   cwd?: string
 }
 
-export type ActivationHandler = <O = unknown, I = unknown>(activation?: Activation<I>) => Promise<WorkerResult<O>>
+//export type ActivationHandler = <O = unknown, I = unknown>(activation?: Activation<I>) => Promise<WorkerResult<O>>
+export type ActivationHandler<Mode extends WorkerOutputMode = 'wrapped'> = <T = any>(
+  activation?: Activation<T>,
+) => Promise<TransportResult<Mode, T>>
+
+export type TransportResult<Mode extends WorkerOutputMode, T = unknown> = Mode extends 'raw' ? T : WorkerResult<T>
 
 /**
  *  SIGNAL TYPES

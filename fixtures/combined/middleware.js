@@ -20,4 +20,4 @@ const middlewareC = async (ctx, next) => {
   ctx.result = ctx.state.trace
 }
 
-export const middleware = () => [middlewareA, middlewareB, middlewareC]
+export const middleware = async () => [middlewareA, middlewareB, middlewareC]

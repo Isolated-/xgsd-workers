@@ -11,6 +11,13 @@
  */
 export enum WorkerErrorCode {
   /**
+   * ## Worker aborted
+   *
+   * Thrown when user forces process to exit (CTRL+C)
+   */
+  CODE_WORKER_ABORTED = 'CODE_WORKER_ABORTED',
+
+  /**
    * ## Guard Violation
    *
    * Thrown when execution safety limits are exceeded.
@@ -32,18 +39,6 @@ export enum WorkerErrorCode {
   CODE_FATAL_ERROR = 'CODE_FATAL_ERROR',
 
   /**
-   * ## Invalid Configuration
-   *
-   * Configuration provided to the worker is invalid or malformed.
-   *
-   * ### Examples:
-   * - Missing required fields
-   * - Invalid schema shape
-   * - Unsupported configuration values
-   */
-  CODE_INVALID_CONFIG = 'CODE_INVALID_CONFIG',
-
-  /**
    * ## Invalid Entry File
    *
    * The entry file cannot be resolved, loaded, or parsed.
@@ -62,7 +57,7 @@ export enum WorkerErrorCode {
    *
    * ### Expected:
    * ```ts
-   * export default () => {}
+   * export default async (data) => {}
    * ```
    *
    * ### Invalid examples:

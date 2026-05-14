@@ -4,6 +4,8 @@ import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 import {createSignalLogger, SignalContext} from './signal.js'
 import {formatWorkerResult} from '../util/format.js'
 import {fileURLToPath} from 'url'
+import {DEFAULTS} from '../constants.js'
+import {numberFixed2} from '../process/workers.runtime.js'
 
 type ChildMessage<T = unknown> =
   | {type: 'ALIVE'; error: undefined; result: undefined}
@@ -46,22 +48,30 @@ function collector(signal: SignalContext, type: 'stdout' | 'stderr') {
   }
 }
 
-function containerManager(opts: {child: any; signal: SignalContext; ctx: Context; start: number}) {
+function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Context<T>; start: number}) {
   const {child, signal, ctx, start} = opts
 
   return new Promise((resolve, reject) => {
     const logger = createSignalLogger(signal)
-    logger.system('container manager started')
 
     let completed = false
+    let killed = false
 
-    const cleanup = () => {
+    const cleanup = (sig: NodeJS.Signals = 'SIGINT') => {
+      if (sig === 'SIGKILL' && !killed) {
+        logger.system(`force killing container (pid: ${child.pid ?? 'unknown'})`)
+
+        killed = true
+        child.kill(sig)
+        return
+      }
+
       if (child.connected) {
-        logger.system('disconnecting container')
+        logger.system(`disconnecting container (pid: ${child.pid ?? 'unknown'})`)
 
         child.removeAllListeners('message')
 
-        child.disconnect()
+        child.disconnect(sig)
       }
     }
 
@@ -92,7 +102,7 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
       startWorkerGuard(opts, (reason) => {
         if (completed) return
 
-        const duration = performance.now() - start
+        const duration = Number((performance.now() - start).toFixed(2))
         logger.activation('worker guard suspended activation', {
           version: ctx.meta.version,
           ok: false,
@@ -101,6 +111,11 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
         })
 
         cleanup()
+
+        if (ctx.meta.limits.onError === 'throw') {
+          return reject({...reason, stack: null})
+        }
+
         resolve(formatWorkerResult({error: reason, duration}))
       })
     }
@@ -115,8 +130,52 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
         duration: performance.now() - start,
       })
 
-      reject(msg.error)
+      // centralise error logging here
+      // vs in child process
+      logger.error(`${msg.error?.message ?? 'unknown'} (${msg.error?.code ?? 'unknown'})`, msg.error ?? undefined)
+
       cleanup()
+      reject(msg.error)
+    }
+
+    let signalCount = 0
+
+    // this should become part of WorkerGuard
+    // eventually
+    function termination() {
+      if (killed) return
+
+      const error = {
+        code: WorkerErrorCode.CODE_WORKER_ABORTED,
+        message: `worker has been aborted`,
+        type: 'user',
+      }
+
+      cleanup('SIGKILL')
+      reject(error)
+    }
+
+    let timeout: NodeJS.Timeout
+    function handleSignal(sig: NodeJS.Signals) {
+      signalCount++
+
+      if (signalCount === 1) {
+        logger.warn(
+          `${sig} received, process will shutdown in ${numberFixed2(DEFAULTS.defaultTerminationTime / 1000)}s. Use CTRL+C to force shutdown.`,
+        )
+
+        cleanup('SIGTERM')
+
+        timeout = setTimeout(termination, DEFAULTS.defaultTerminationTime)
+        return
+      }
+
+      if (signalCount === 2) {
+        logger.warn(`final ${sig} received, forcing process to exit`)
+
+        clearTimeout(timeout)
+        termination()
+      }
     }
 
     function finish(msg: ChildMessage) {
@@ -139,7 +198,9 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
         ok: true,
       })
 
-      result.duration = duration
+      result.duration = Number(duration.toFixed(2))
+
+      cleanup()
 
       // normal errors are wrapped inside the process
       if (ctx.meta.output.mode === 'raw') {
@@ -147,8 +208,6 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
       } else {
         resolve(result)
       }
-
-      cleanup()
     }
 
     child.on('message', (msg: ChildMessage) => {
@@ -156,8 +215,10 @@ function containerManager(opts: {child: any; signal: SignalContext; ctx: Context
       if (msg.type === 'DONE') return finish(msg)
       if (msg.type === 'ERROR') return fatal(msg)
 
-      logger.warn(`unknown message type ${(msg as any).type}0`)
+      logger.warn(`unknown message type ${(msg as any).type}`)
     })
+
+    process.on('SIGINT', handleSignal)
   })
 }
 
@@ -172,7 +233,7 @@ function resolveProcessPath() {
   return path
 }
 
-export async function runWorker<T>(opts: {ctx: Context<T>; signal: SignalContext}) {
+export async function runWorker<T = any>(opts: {ctx: Context<T>; signal: SignalContext}) {
   const start = performance.now()
   const {ctx, signal} = opts
 
@@ -184,15 +245,16 @@ export async function runWorker<T>(opts: {ctx: Context<T>; signal: SignalContext
     stdio: ['inherit', 'pipe', 'pipe', 'ipc'],
     // hard limit results in V8 errors
     // so use carefully
-    execArgv: [`--max-old-space-size=512`],
+    //execArgv: [`--max-old-space-size=512`],
     env: {
-      ...ctx.env,
-      XGSD_WORKER_VERSION: ctx.meta.version,
-      XGSD_CTX: JSON.stringify(ctx),
+      ...ctx.env, // <- this may not be needed as dotenv can be used inside the worker
+      XGSD_WORKERS_VERSION: ctx.meta.version,
     },
   })
 
-  return containerManager({child, signal, ctx, start})
+  child.send({type: 'START', ctx})
+
+  return containerManager<T>({child, signal, ctx, start})
 }
 
 type Throttler = (memory: {rss: number; heap: number}) => boolean

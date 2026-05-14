@@ -1,3 +1,3 @@
 export type StreamLike = {
-  write: <T = unknown>(chunk: T) => boolean | void
+  write: (chunk: string) => boolean | void
 }

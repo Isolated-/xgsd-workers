@@ -200,27 +200,103 @@ describe('Workers Public API', () => {
       expect(signals.length).toBeGreaterThan(0)
     })
 
+    test('entry file errors (from parsing) reveal debug info', async () => {
+      const {transport, stream} = createTestTransport('invalid-code.js')
+
+      try {
+        await transport()
+      } catch (error: any) {
+        const {code, message, type, stack} = error
+
+        expect(code).toBe(WorkerErrorCode.CODE_INVALID_ENTRY_FILE)
+        expect(type).toBe('user')
+        expect(message).toContain('Unexpected reserved word')
+        expect(stack).toContain('Unexpected reserved word')
+
+        // signals should contain a trace too
+        const signal = stream
+          .finish()
+          .filter((signal) => signal.type === 'error')
+          .pop()
+
+        expect(signal.message).toContain('Unexpected reserved word')
+        expect(signal.meta.stack).toEqual(stack)
+      }
+    })
+
     test('exported default must be a function', async () => {
       const {transport} = createTestTransport('bad.js')
 
-      await expect(transport()).rejects.toThrow()
+      try {
+        await transport()
+      } catch (error: any) {
+        expect(error.code).toBe(WorkerErrorCode.CODE_INVALID_DEFAULT_FUNCTION)
+      }
     })
 
     test('circular payloads are handled predictably', async () => {
       const {transport} = createTestTransport('large-circular.js')
 
       try {
-        await transport()
+        const result = await transport()
+        expect(result).toBeUndefined()
       } catch (error: any) {
         expect(error.code).toBe(WorkerErrorCode.CODE_INVALID_DATA)
       }
+    })
+
+    describe('output.onError', () => {
+      test('onError: drop should drop values (result = null)', async () => {
+        const {transport, stream} = createTestTransport('large-circular.js', {
+          output: {
+            onError: 'drop',
+          },
+        })
+
+        const result = await transport()
+        expect(result.ok).toBe(true)
+        expect(result.result).toBe(null)
+
+        const signal = stream
+          .finish()
+          .filter((s: any) => s.type === 'warn')
+          .pop()
+
+        expect(signal.meta.code).toBe(WorkerErrorCode.CODE_INVALID_DATA)
+        expect(signal.message).toContain('"ctx.result" has been set to null')
+      })
     })
   })
 
   /**
    *  Worker Guard
+   *
+   *  @note these should really result in a rejection vs resolved value
+   *  so that all fatal errors are handled the same way
+   *  but that can wait till v1.1+
+   *
    */
   describe('Worker Guard', () => {
+    test('worker guard rejects promise with limits.on: throw', async () => {
+      const {transport, stream} = createTestTransport('worker.js', {
+        limits: {
+          ttl: 1,
+          onError: 'throw',
+        },
+      })
+
+      // promise is rejected vs resolved
+      await expect(transport()).rejects.toThrow()
+
+      // error trace is still in signals
+      const signal = stream
+        .finish()
+        .filter((s: any) => s.type === 'error')
+        .pop()
+
+      expect(signal.meta.code).toBe(WorkerErrorCode.CODE_WORKER_GUARD)
+    })
+
     test('worker guard suspends processes (ttl)', async () => {
       const {transport} = createTestTransport('worker.js', {
         limits: {ttl: 1},

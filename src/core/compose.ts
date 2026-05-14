@@ -2,11 +2,13 @@ import {Context, WorkerResult} from './types.js'
 import {execute} from '@xgsd/engine'
 
 export type Next = () => Promise<void>
-export type Middleware = (ctx: Context, next: Next) => Promise<void>
-export type ComposedMiddleware = (ctx: Context) => Promise<WorkerResult<unknown>>
+export type Middleware = <T>(ctx: Context<T>, next: Next) => Promise<void>
+export type UserMiddlewareFn = () => Promise<Middleware[]> | Middleware[]
+
+export type ComposedMiddleware = <T>(ctx: Context<T>) => Promise<WorkerResult<unknown>>
 
 export function compose(middleware: Middleware[]): ComposedMiddleware {
-  return async function run(ctx: Context): Promise<WorkerResult<unknown>> {
+  return async function run<T>(ctx: Context<T>): Promise<WorkerResult<unknown>> {
     let index = -1
     let start = performance.now()
 
@@ -31,7 +33,7 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
         return
       }
 
-      const executeWrapper = async (ctx: Context) => {
+      const executeWrapper = async (ctx: Context<T>) => {
         await fn(ctx, async () => {
           await dispatch(i + 1)
         })
