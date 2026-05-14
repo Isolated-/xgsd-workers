@@ -16,7 +16,7 @@ type SetupOpts = {
   config?: CreateTransportOpts
 }
 
-export const compact = (prefix: string = 'wrk') => `${prefix}_${randomBytes(6).toString('hex')}`
+export const compact = (prefix: string = 'ctx') => `${prefix}_${randomBytes(6).toString('hex')}`
 
 export function completeWorkerSetupFromConfig(opts: SetupOpts) {
   const ctxId = compact('wrk')

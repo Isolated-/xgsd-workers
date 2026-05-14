@@ -53,7 +53,7 @@ jobs:
         env:
           CONCURRENCY: ${{ matrix.concurrency }}
           ITEMS: ${{ matrix.items }}
-          ACTIVATIONS: ${{ matrics.activation }}
+          ACTIVATIONS: ${{ matrix.activations }}
 
         run: node benchmarks/concurrency.js
 
