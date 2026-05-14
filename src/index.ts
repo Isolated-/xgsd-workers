@@ -399,7 +399,7 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
     output,
   } as CreateTransportOpts
 
-  const {ctx} = completeWorkerSetupFromConfig({stream, config})
+  const {ctx, signal} = completeWorkerSetupFromConfig({stream, config})
 
   const handle: ActivationHandler<Mode> = async (activation) => {
     const activationCtx = {
@@ -409,9 +409,11 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
       env: activation?.env ?? opts.env ?? {},
     }
 
+    signal.setId(activationCtx.id)
+
     return runWorker({
       ctx: activationCtx,
-      signal: createSignalContext({ctx: activationCtx, stream}),
+      signal,
     }) as Promise<any>
   }
 

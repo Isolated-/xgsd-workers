@@ -23,6 +23,7 @@ export const DEFAULT_SIGNAL_FILE_NAME = 'signals.jsonl' as const
 
 // keep this off public API
 export type SignalContext = {
+  setId: (id: string) => void
   emit: <T extends Record<string, unknown>>(signal: EmitOpts<T>) => void
 }
 
@@ -66,10 +67,15 @@ export function createSignalContext(opts: {
 }): SignalContext {
   const {ctx, stream, mapper} = opts
 
+  let id = ctx?.id ?? 'unknown'
+
   return {
+    setId: (newId: string) => {
+      id = newId
+    },
     emit<T extends Record<string, unknown>>(signal: EmitOpts<T>) {
       const e: Signal<T> = {
-        ctx: ctx?.id ?? 'unknown',
+        ctx: id ?? 'unknown',
         pid: signal.pid ?? process.pid,
         timestamp: Date.now(),
         type: signal.type,
