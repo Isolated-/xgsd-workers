@@ -48,14 +48,64 @@ function collector(signal: SignalContext, type: 'stdout' | 'stderr') {
   }
 }
 
+// this should become part of WorkerGuard
+// eventually
+function termination(killed: boolean, cleanup: any, reject: any) {
+  if (killed) return
+
+  const error = {
+    code: WorkerErrorCode.CODE_WORKER_ABORTED,
+    message: `worker has been aborted`,
+    type: 'user',
+  }
+
+  cleanup('SIGKILL')
+  reject(error)
+}
+
+let started = false
+
+function handleSignalFactory(opts: {logger: any; killed: boolean; cleanup: any; reject: any}) {
+  let signalCount = 0
+  const {logger, killed, cleanup, reject} = opts
+
+  let timeout: NodeJS.Timeout
+  return function handleSignal(sig: NodeJS.Signals) {
+    signalCount++
+
+    if (signalCount === 1) {
+      logger.warn(
+        `${sig} received, process will shutdown in ${numberFixed2(DEFAULTS.defaultTerminationTime / 1000)}s. Use CTRL+C to force shutdown.`,
+      )
+
+      cleanup('SIGTERM')
+
+      timeout = setTimeout(() => {
+        termination(killed, cleanup, reject)
+      }, DEFAULTS.defaultTerminationTime)
+
+      return
+    }
+
+    if (signalCount === 2) {
+      logger.warn(`final ${sig} received, forcing process to exit`)
+
+      clearTimeout(timeout)
+      termination(killed, cleanup, reject)
+    }
+  }
+}
+
 function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Context<T>; start: number}) {
   const {child, signal, ctx, start} = opts
+  let completed = false
+  let killed = false
+  const logger = createSignalLogger(signal)
 
   return new Promise((resolve, reject) => {
-    const logger = createSignalLogger(signal)
-
-    let completed = false
-    let killed = false
+    // collect stdout/err logs -> Signals
+    child.stdout?.on('data', collector(signal, 'stdout'))
+    child.stderr?.on('data', collector(signal, 'stderr'))
 
     const cleanup = (sig: NodeJS.Signals = 'SIGINT') => {
       if (sig === 'SIGKILL' && !killed) {
@@ -76,9 +126,10 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
       }
     }
 
-    // collect stdout/err logs -> Signals
-    child.stdout?.on('data', collector(signal, 'stdout'))
-    child.stderr?.on('data', collector(signal, 'stderr'))
+    if (!started) {
+      process.on('SIGINT', handleSignalFactory({logger, reject, cleanup, killed}))
+      started = true
+    }
 
     const throttler = (mem: {rss: number; heap: number}) => {
       const {memory} = ctx.meta.limits
@@ -139,46 +190,6 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
       reject(msg.error)
     }
 
-    let signalCount = 0
-
-    // this should become part of WorkerGuard
-    // eventually
-    function termination() {
-      if (killed) return
-
-      const error = {
-        code: WorkerErrorCode.CODE_WORKER_ABORTED,
-        message: `worker has been aborted`,
-        type: 'user',
-      }
-
-      cleanup('SIGKILL')
-      reject(error)
-    }
-
-    let timeout: NodeJS.Timeout
-    function handleSignal(sig: NodeJS.Signals) {
-      signalCount++
-
-      if (signalCount === 1) {
-        logger.warn(
-          `${sig} received, process will shutdown in ${numberFixed2(DEFAULTS.defaultTerminationTime / 1000)}s. Use CTRL+C to force shutdown.`,
-        )
-
-        cleanup('SIGTERM')
-
-        timeout = setTimeout(termination, DEFAULTS.defaultTerminationTime)
-        return
-      }
-
-      if (signalCount === 2) {
-        logger.warn(`final ${sig} received, forcing process to exit`)
-
-        clearTimeout(timeout)
-        termination()
-      }
-    }
-
     function finish(msg: ChildMessage) {
       const {result, memoryUsage} = msg as any
       const duration = performance.now() - start
@@ -218,8 +229,6 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
 
       logger.warn(`unknown message type ${(msg as any).type}`)
     })
-
-    process.on('SIGINT', handleSignal)
   })
 }
 
