@@ -2,6 +2,10 @@ import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 
 export type RunFn<T, R = T> = (data: T) => Promise<T>
 
+export enum ExitCode {
+  CODE_DETACHED_PROCESS = 10,
+}
+
 /**
  *  WORKER RESULT TYPES
  */

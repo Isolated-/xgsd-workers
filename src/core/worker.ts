@@ -6,6 +6,7 @@ import {formatWorkerResult} from '../util/format.js'
 import {fileURLToPath} from 'url'
 import {DEFAULTS} from '../constants.js'
 import {numberFixed2} from '../process/workers.runtime.js'
+import {startWorkerGuard, workerGuardThrottler} from './worker-guard.js'
 
 type ChildMessage<T = unknown> =
   | {type: 'ALIVE'; error: undefined; result: undefined}
@@ -50,7 +51,7 @@ function collector(signal: SignalContext, type: 'stdout' | 'stderr') {
 
 // this should become part of WorkerGuard
 // eventually
-function termination(killed: boolean, cleanup: any, reject: any) {
+async function termination(killed: boolean, cleanup: any, reject: any) {
   if (killed) return
 
   const error = {
@@ -59,7 +60,7 @@ function termination(killed: boolean, cleanup: any, reject: any) {
     type: 'user',
   }
 
-  cleanup('SIGKILL')
+  await cleanup('SIGKILL')
   reject(error)
 }
 
@@ -70,7 +71,7 @@ function handleSignalFactory(opts: {logger: any; killed: boolean; cleanup: any; 
   const {logger, killed, cleanup, reject} = opts
 
   let timeout: NodeJS.Timeout
-  return function handleSignal(sig: NodeJS.Signals) {
+  return async function handleSignal(sig: NodeJS.Signals) {
     signalCount++
 
     if (signalCount === 1) {
@@ -78,10 +79,10 @@ function handleSignalFactory(opts: {logger: any; killed: boolean; cleanup: any; 
         `${sig} received, process will shutdown in ${numberFixed2(DEFAULTS.defaultTerminationTime / 1000)}s. Use CTRL+C to force shutdown.`,
       )
 
-      cleanup('SIGTERM')
+      await cleanup('SIGTERM')
 
-      timeout = setTimeout(() => {
-        termination(killed, cleanup, reject)
+      timeout = setTimeout(async () => {
+        await termination(killed, cleanup, reject)
       }, DEFAULTS.defaultTerminationTime)
 
       return
@@ -91,7 +92,7 @@ function handleSignalFactory(opts: {logger: any; killed: boolean; cleanup: any; 
       logger.warn(`final ${sig} received, forcing process to exit`)
 
       clearTimeout(timeout)
-      termination(killed, cleanup, reject)
+      await termination(killed, cleanup, reject)
     }
   }
 }
@@ -100,6 +101,7 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
   const {child, signal, ctx, start} = opts
   let completed = false
   let killed = false
+
   const logger = createSignalLogger(signal)
 
   return new Promise((resolve, reject) => {
@@ -107,51 +109,61 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
     child.stdout?.on('data', collector(signal, 'stdout'))
     child.stderr?.on('data', collector(signal, 'stderr'))
 
-    const cleanup = (sig: NodeJS.Signals = 'SIGINT') => {
-      if (sig === 'SIGKILL' && !killed) {
-        logger.system(`force killing container (pid: ${child.pid ?? 'unknown'})`)
+    let timeout: NodeJS.Timeout
+    let cleaningUp = false
 
-        killed = true
-        child.kill(sig)
+    // move this
+    const cleanup = async (sig: NodeJS.Signals = 'SIGINT') => {
+      if (cleaningUp) return
+      cleaningUp = true
+
+      const meta = processes.get(child.pid)
+
+      if (meta) {
+        meta.status = 'stopping'
+      }
+
+      process.off('SIGINT', sigintHandler)
+
+      child.once('exit', () => {
+        clearTimeout(timeout)
+      })
+
+      if (sig === 'SIGKILL') {
+        logger.warn(`force killing container (${child.pid})`)
+
+        child.kill('SIGKILL')
         return
       }
 
-      if (child.connected) {
-        logger.system(`disconnecting container (pid: ${child.pid ?? 'unknown'})`)
+      logger.system(`gracefully stopping container (${child.pid})`)
 
-        child.removeAllListeners('message')
-        process.removeAllListeners('SIGINT')
+      child.kill('SIGTERM')
 
-        child.disconnect(sig)
-      }
+      timeout = setTimeout(() => {
+        if (child.exitCode === null) {
+          logger.warn(`escalating to SIGKILL (${child.pid})`)
+
+          child.disconnect()
+          child.kill('SIGKILL')
+        }
+      }, DEFAULTS.defaultTerminationTime)
     }
 
+    const sigintHandler = handleSignalFactory({logger, cleanup, reject, killed})
+
     if (!started) {
-      process.on('SIGINT', handleSignalFactory({logger, reject, cleanup, killed}))
+      process.on('exit', handleExitFactory(createSignalLogger(signal), ctx.id))
+      process.on('SIGINT', sigintHandler)
       started = true
     }
 
-    const throttler = (mem: {rss: number; heap: number}) => {
-      const {memory} = ctx.meta.limits
-      const limitMB = typeof memory === 'number' ? memory : memory.limitMB
-      if (typeof memory === 'number' || memory.strategy === 'heap') {
-        const heapMB = mem.heap / 1024 / 1024
-        return heapMB > limitMB
-      }
-
-      if (memory.strategy !== 'rss') {
-        logger.warn(`"${memory.strategy}" is not a valid strategy, "rss" will be used.`)
-      }
-
-      const rssMB = mem.rss / 1024 / 1024
-      return rssMB > limitMB
-    }
-
+    const throttler = workerGuardThrottler(ctx, logger)
     const startGuard = () => {
       const opts = {child, limits: ctx.meta.limits, signal, throttler}
       logger.system('worker guard started')
 
-      startWorkerGuard(opts, (reason) => {
+      startWorkerGuard(opts, async (reason) => {
         if (completed) return
 
         const duration = Number((performance.now() - start).toFixed(2))
@@ -162,7 +174,7 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
           duration,
         })
 
-        cleanup()
+        await cleanup()
 
         if (ctx.meta.limits.onError === 'throw') {
           return reject({...reason, stack: null})
@@ -174,7 +186,15 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
 
     startGuard()
 
-    function fatal(msg: ChildMessage) {
+    child.on('message', (msg: ChildMessage) => {
+      if (msg.type === 'ALIVE') return
+      if (msg.type === 'DONE') return finish(msg)
+      if (msg.type === 'ERROR') return fatal(msg)
+
+      logger.warn(`unknown message type ${(msg as any).type}`)
+    })
+
+    async function fatal(msg: ChildMessage) {
       logger.activation('fatal', {
         version: ctx.meta.version,
         ok: false,
@@ -186,16 +206,14 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
       // vs in child process
       logger.error(`${msg.error?.message ?? 'unknown'} (${msg.error?.code ?? 'unknown'})`, msg.error ?? undefined)
 
-      cleanup()
+      await cleanup()
       reject(msg.error)
     }
 
-    function finish(msg: ChildMessage) {
+    async function finish(msg: ChildMessage) {
       const {result, memoryUsage} = msg as any
       const duration = performance.now() - start
 
-      // TODO: this should always be the final signal sent
-      // move it outside of this function eventually
       logger.activation(`activation completed in ${duration.toFixed(2)} ms`, {
         version: ctx.meta.version,
         ok: true,
@@ -212,7 +230,7 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
 
       result.duration = Number(duration.toFixed(2))
 
-      cleanup()
+      await cleanup()
 
       // normal errors are wrapped inside the process
       if (ctx.meta.output.mode === 'raw') {
@@ -221,14 +239,6 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
         resolve(result)
       }
     }
-
-    child.on('message', (msg: ChildMessage) => {
-      if (msg.type === 'ALIVE') return
-      if (msg.type === 'DONE') return finish(msg)
-      if (msg.type === 'ERROR') return fatal(msg)
-
-      logger.warn(`unknown message type ${(msg as any).type}`)
-    })
   })
 }
 
@@ -243,11 +253,32 @@ function resolveProcessPath() {
   return path
 }
 
+type Process = {
+  pid: number
+  start: number
+  status: 'running' | 'stopping'
+}
+
+const processes = new Map<number, Process>()
+
+function handleExitFactory(logger: any, id: string) {
+  return function handle(code: number) {
+    if (processes.size === 0) return
+
+    logger.warn(`there are currently ${processes.size} processes in an unknown state.`)
+
+    for (const [pid, process] of processes) {
+      logger.warn(
+        `process ${pid} is ${process.status} (ctx: ${id}) - check your process manager to ensure it's not hanging`,
+        {pid, status: process.status, tag: 'worker_guard'},
+      )
+    }
+  }
+}
+
 export async function runWorker<T = any>(opts: {ctx: Context<T>; signal: SignalContext}) {
   const start = performance.now()
   const {ctx, signal} = opts
-
-  signal.emit({type: 'system', message: 'starting container'})
 
   // TODO: remove hardcoded worker path
   const path = resolveProcessPath()
@@ -262,75 +293,20 @@ export async function runWorker<T = any>(opts: {ctx: Context<T>; signal: SignalC
     },
   })
 
+  const pid = child.pid!
+  if (!processes.has(pid)) {
+    processes.set(pid, {
+      pid,
+      start: Date.now(),
+      status: 'running',
+    })
+  }
+
+  child.once('exit', () => {
+    processes.delete(pid)
+  })
+
   child.send({type: 'START', ctx})
 
   return containerManager<T>({child, signal, ctx, start})
-}
-
-type Throttler = (memory: {rss: number; heap: number}) => boolean
-
-type GuardOpts = {
-  signal: SignalContext
-  child: any
-  limits: WorkerGuardOpts
-  throttler: Throttler
-}
-
-function startWorkerGuard(opts: GuardOpts, suspended?: (reason: WorkerError) => void) {
-  const {child, signal} = opts
-  const {ttl, memory} = opts.limits
-
-  let ttlTimer: NodeJS.Timeout | null = null
-  let killed = false
-
-  const kill = (reason: string) => {
-    if (killed) return
-    killed = true
-
-    if (ttlTimer) clearTimeout(ttlTimer)
-
-    child.kill('SIGKILL')
-
-    const err: WorkerError = {
-      code: WorkerErrorCode.CODE_WORKER_GUARD,
-      message: reason,
-      type: 'system',
-    }
-
-    signal.emit({
-      type: 'error',
-      message: `process killed ${reason}`,
-      meta: {...err, guard: true},
-    })
-
-    suspended?.(err)
-  }
-
-  // TTL watchdog
-  ttlTimer = setTimeout(() => {
-    kill(`ttl exceeded limit (limit: ${ttl.toFixed(2)}ms)`)
-  }, ttl)
-
-  child.on('message', (msg: any) => {
-    if (msg.type !== 'ALIVE') {
-      return
-    }
-
-    // (v0.1.0) this isn't set in stone
-    // may be worth using RSS
-    // (v1-beta) let caller decide how to throttle
-    const limit = typeof memory === 'number' ? memory : memory.limitMB
-    const shouldThrottle = opts.throttler({
-      rss: msg.memory?.rss,
-      heap: msg.memory?.heapUsed,
-    })
-
-    if (shouldThrottle) {
-      kill(`memory limit exceeded (limit: ${limit.toFixed(2)}MB)`)
-    }
-  })
-
-  child.on('exit', () => {
-    if (ttlTimer) clearTimeout(ttlTimer)
-  })
 }

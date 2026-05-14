@@ -1,5 +1,5 @@
 import {compose, Middleware, UserMiddlewareFn} from '../core/compose.js'
-import {Context} from '../core/types.js'
+import {Context, ExitCode} from '../core/types.js'
 import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 import {createLogger} from '../core/shared.js'
 import {
@@ -23,6 +23,10 @@ type RuntimeOpts<T> = {
   stderr: any
   pulse?: boolean
 }
+
+process.on('disconnect', () => {
+  process.exit(ExitCode.CODE_DETACHED_PROCESS)
+})
 
 async function runtime<T>(opts: RuntimeOpts<T>) {
   const heartbeat = opts.pulse ? startHeartbeat() : undefined
@@ -197,7 +201,7 @@ function rejectionHandler(stderr: any) {
     // NOTE: this failsafe was added
     // to protect against dangling processes
     if (!done) {
-      process.exit(10)
+      process.exit(ExitCode.CODE_DETACHED_PROCESS)
     }
   }
 
@@ -210,12 +214,12 @@ function rejectionHandler(stderr: any) {
  */
 
 function handleSignalFactory(opts: {stdout: any; stderr: any}) {
-  const {stderr} = opts
+  const {stdout} = opts
 
   return async function (sig: NodeJS.Signals) {
     if (sig !== 'SIGTERM') return
 
-    stderr.warn(`container received ${sig} - shutting down`)
+    stdout.log(`container shutting down (${process.pid})`)
 
     // handle clean up
     process.exit(0)
