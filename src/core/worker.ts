@@ -53,20 +53,21 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
 
   return new Promise((resolve, reject) => {
     const logger = createSignalLogger(signal)
-    logger.system('container manager started')
 
     let completed = false
     let killed = false
 
     const cleanup = (sig: NodeJS.Signals = 'SIGINT') => {
       if (sig === 'SIGKILL' && !killed) {
+        logger.system(`force killing container (pid: ${child.pid ?? 'unknown'})`)
+
         killed = true
         child.kill(sig)
         return
       }
 
       if (child.connected) {
-        logger.system('disconnecting container')
+        logger.system(`disconnecting container (pid: ${child.pid ?? 'unknown'})`)
 
         child.removeAllListeners('message')
 
@@ -133,12 +134,14 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
       // vs in child process
       logger.error(`${msg.error?.message ?? 'unknown'} (${msg.error?.code ?? 'unknown'})`, msg.error ?? undefined)
 
-      reject(msg.error)
       cleanup()
+      reject(msg.error)
     }
 
     let signalCount = 0
 
+    // this should become part of WorkerGuard
+    // eventually
     function termination() {
       if (killed) return
 
@@ -148,8 +151,8 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
         type: 'user',
       }
 
-      reject(error)
       cleanup('SIGKILL')
+      reject(error)
     }
 
     let timeout: NodeJS.Timeout
@@ -197,14 +200,14 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
 
       result.duration = Number(duration.toFixed(2))
 
+      cleanup()
+
       // normal errors are wrapped inside the process
       if (ctx.meta.output.mode === 'raw') {
         resolve(result?.result)
       } else {
         resolve(result)
       }
-
-      cleanup()
     }
 
     child.on('message', (msg: ChildMessage) => {
@@ -242,7 +245,7 @@ export async function runWorker<T = any>(opts: {ctx: Context<T>; signal: SignalC
     stdio: ['inherit', 'pipe', 'pipe', 'ipc'],
     // hard limit results in V8 errors
     // so use carefully
-    execArgv: [`--max-old-space-size=512`],
+    //execArgv: [`--max-old-space-size=512`],
     env: {
       ...ctx.env, // <- this may not be needed as dotenv can be used inside the worker
       XGSD_WORKERS_VERSION: ctx.meta.version,
