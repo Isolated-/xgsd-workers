@@ -131,4 +131,5 @@ export type ActivationSignal = GenericSignal & {
   error?: string | null
   version: string
   duration: number
+  activationTime: number
 }

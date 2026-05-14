@@ -31,3 +31,4 @@ fixtures/**/.benchmark
 fixtures/**/.typescript
 
 signals.jsonl
+script.js

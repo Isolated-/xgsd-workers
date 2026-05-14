@@ -54,8 +54,8 @@ export function createSignalLogger(signal: SignalContext) {
     system: (message: string, meta?: SystemSignal) => {
       wrapper('system', message, meta)
     },
-    metric: (meta: MetricSignal) => {
-      wrapper('metric', `metric`, meta)
+    metric: (meta: MetricSignal, message?: string) => {
+      wrapper('metric', message ?? `metric`, meta)
     },
   }
 }

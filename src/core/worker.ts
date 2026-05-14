@@ -1,5 +1,5 @@
 import {fork} from 'child_process'
-import {Context, WorkerGuardOpts, WorkerResult} from './types.js'
+import {Context, WorkerGuardOpts} from './types.js'
 import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 import {createSignalLogger, SignalContext} from './signal.js'
 import {formatWorkerResult} from '../util/format.js'
@@ -7,6 +7,7 @@ import {fileURLToPath} from 'url'
 import {DEFAULTS} from '../constants.js'
 import {numberFixed2} from '../process/workers.runtime.js'
 import {startWorkerGuard, workerGuardThrottler} from './worker-guard.js'
+import {WorkerResult} from '../types/result.types.js'
 
 type ChildMessage<T = unknown> =
   | {type: 'ALIVE'; error: undefined; result: undefined}
@@ -198,15 +199,18 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
     }
 
     async function finish(msg: ChildMessage) {
-      const {result, memoryUsage} = msg as any
+      const {result} = msg as any
       const duration = performance.now() - start
 
-      logger.metric({
-        version: ctx.meta.version,
-        duration,
-        memoryUsage,
-        ok: true,
-      })
+      logger.metric(
+        {
+          version: ctx.meta.version,
+          duration,
+          activationTime: duration,
+          ok: true,
+        },
+        `duration=${duration.toFixed(2)}ms (metric)`,
+      )
 
       result.duration = Number(duration.toFixed(2))
 
@@ -214,14 +218,6 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
 
       // normal errors are wrapped inside the process
       resolve(result)
-
-      // note: don't do this here
-      // push this to the transport boundary
-      /*if (ctx.meta.output.mode === 'raw') {
-        resolve(result?.result)
-      } else {
-        resolve(result)
-      }*/
     }
   })
 }

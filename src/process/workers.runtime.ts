@@ -129,7 +129,7 @@ export function completePreChecks(version: string, stdout: any, stderr: any) {
   const before = memorySnapshot()
 
   stdout.log(`container started (pid: ${process.pid})`, {tag: 'info'})
-  stdout.log(`memory usage at start ${before.rss} MB (heap: ${before.heapUsed}MB/${before.heapTotal}MB)`, {
+  stdout.log(`container memory usage at start ${before.rss} MB (heap: ${before.heapUsed}MB/${before.heapTotal}MB)`, {
     workers: version,
     heapUsed: before.heapUsed,
     heapTotal: before.heapTotal,

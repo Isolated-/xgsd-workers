@@ -79,25 +79,7 @@ async function runtime<T>(opts: RuntimeOpts<T>) {
       stderr.warn(`middleware() is type ${typeof mod.middleware} - expected "function". It will not be used.`)
     }
 
-    const serialisationCheck: Middleware = async (ctx, next) => {
-      async function wrapper(property: 'result' | 'error') {
-        try {
-          ctx[property] = completeSerialisationCheck({
-            data: ctx[property],
-            onError: ctx.meta.output.onError,
-            stderr,
-            property,
-          })
-        } catch (error) {
-          ctx.error = error
-        }
-      }
-
-      await wrapper('error')
-      await wrapper('result')
-    }
-
-    const bootstrap = compose([...middleware, usercodeMiddlewareWrapper(mod.default), serialisationCheck])
+    const bootstrap = compose([...middleware, usercodeMiddlewareWrapper(mod.default)])
     const {limits} = ctx.meta
     const {ttl, memory} = limits
 
@@ -112,6 +94,26 @@ async function runtime<T>(opts: RuntimeOpts<T>) {
 
     stdout.log(`worker finished in ${duration.toFixed(2)} ms`, {duration, tag: 'debug'})
 
+    async function wrapper(property: 'result' | 'error') {
+      try {
+        return completeSerialisationCheck({
+          data: ctx[property],
+          onError: ctx.meta?.output?.onError,
+          stderr,
+          property,
+        })
+      } catch (error) {
+        throw error
+      }
+    }
+
+    try {
+      result.error = await wrapper('error')
+      result.result = await wrapper('result')
+    } catch (error) {
+      return err(error)
+    }
+
     // note: this could resolve vs reject
     // that covers passthrough use cases where the user
     // may not be responsible for the circular/unserialisable data
@@ -120,7 +122,7 @@ async function runtime<T>(opts: RuntimeOpts<T>) {
     }
 
     const after = memorySnapshot()
-    stdout.log(`memory usage at end ${after.rss} MB (heap: ${after.heapUsed}MB/${after.heapTotal}MB)`, {
+    stdout.log(`container memory usage at end ${after.rss} MB (heap: ${after.heapUsed}MB/${after.heapTotal}MB)`, {
       workers: version,
       heapUsed: after.heapUsed,
       heapTotal: after.heapTotal,

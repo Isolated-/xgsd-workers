@@ -223,6 +223,14 @@ describe('Workers Public API (v1.0.0)', () => {
       expect(res.ok).toBe(true)
       expect(res.result).toEqual(undefined)
     })
+
+    test('middleware can fix circular issues', async () => {
+      const {transport} = createTestTransport('circular-middleware-fix.js')
+
+      const res = await transport()
+      console.log(res)
+      expect(res.result).toEqual({fixed: true})
+    })
   })
 
   /**

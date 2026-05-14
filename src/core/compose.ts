@@ -13,24 +13,17 @@ export type ComposedMiddleware = <T>(ctx: Context<T>) => Promise<WorkerResult<T>
 export function compose(middleware: Middleware[]): ComposedMiddleware {
   return async function run<T>(ctx: Context<T>): Promise<WorkerResult<T>> {
     let index = -1
+    let start = performance.now()
 
-    async function executeAdapter<T>(opts: {
-      idx: number
-      ctx: Context<T>
-      dispatch: (idx: number) => Promise<void>
-      fn: Middleware
-    }) {
-      const {dispatch, fn, idx} = opts
-      return async (ctx: Context<T>) => {
-        await fn(ctx, async () => {
-          await dispatch(idx + 1)
-        })
-
-        return ctx
-      }
+    let res: any = {
+      version: 'v1',
+      ok: undefined,
+      result: undefined,
+      error: undefined,
+      duration: undefined,
     }
 
-    async function dispatch(i: number): Promise<any> {
+    async function dispatch(i: number): Promise<void> {
       if (i <= index) {
         throw new Error('next() called multiple times')
       }
@@ -43,12 +36,33 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
         return
       }
 
-      const wrapper = await executeAdapter({idx: i, ctx, dispatch, fn})
-      return execute(ctx, wrapper)
+      const executeWrapper = async (ctx: Context<T>) => {
+        await fn(ctx, async () => {
+          await dispatch(i + 1)
+        })
+
+        return ctx
+      }
+
+      const result = await execute(ctx, executeWrapper)
+
+      // clean this up when unit testing
+      if (result.error || result.data?.error) {
+        res.ok = false
+        res.result = null
+        res.error = result.error ?? result.data?.error
+      } else {
+        res.ok = true
+        res.result = result.data?.result ?? null
+        res.error = null
+      }
+
+      res.duration = performance.now() - start
     }
 
-    const result = await dispatch(0)
-    return createWorkerResult({result, duration: 0})
+    await dispatch(0)
+
+    return res
   }
 }
 

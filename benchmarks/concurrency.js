@@ -15,11 +15,15 @@ function formatMB(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(2)}MB`
 }
 
-const stream = createWriteStream('signals.jsonl')
+const stream = createWriteStream('signals.jsonl', {flags: 'a'})
 
 const handler = createTransport({
+  schemaVersion: 'v1.1',
   entry: join(process.cwd(), 'benchmarks', 'worker.js'),
   stream,
+  limits: {
+    memory: 32,
+  },
 })
 
 // warmup
