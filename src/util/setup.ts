@@ -19,6 +19,9 @@ type SetupOpts = {
 export const compact = (prefix: string = 'ctx') => `${prefix}_${randomBytes(6).toString('hex')}`
 
 export function completeWorkerSetupFromConfig(opts: SetupOpts) {
+  const mode = typeof opts.config?.output === 'string' ? opts.config?.output : opts.config?.output?.mode
+  const onError = typeof opts.config?.output === 'string' ? undefined : opts.config?.output?.onError
+
   const ctxId = compact('ctx')
   const ctx: Context = {
     id: ctxId,
@@ -38,8 +41,8 @@ export function completeWorkerSetupFromConfig(opts: SetupOpts) {
         ...opts.config?.limits,
       },
       output: {
-        ...DEFAULTS.output,
-        ...opts.config?.output,
+        mode: mode ?? DEFAULTS.output.mode,
+        onError,
       },
     },
   }

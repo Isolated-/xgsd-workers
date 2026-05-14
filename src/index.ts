@@ -240,23 +240,25 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
   /**
    * Worker output configuration.
    */
-  output?: {
-    /**
-     * Output mode.
-     *
-     * - `wrapped` → structured WorkerResult response
-     * - `raw` → returns worker result/error directly
-     */
-    mode?: Mode
+  output?:
+    | Mode
+    | {
+        /**
+         * Output mode.
+         *
+         * - `wrapped` → structured WorkerResult response
+         * - `raw` → returns worker result/error directly
+         */
+        mode?: Mode
 
-    /**
-     *  added in v1.0.3
-     *  determines what to when data can't be serialised
-     */
-    onError?: ErrorBehaviour
+        /**
+         *  added in v1.0.3
+         *  determines what to when data can't be serialised
+         */
+        onError?: ErrorBehaviour
 
-    [key: string]: unknown
-  }
+        [key: string]: unknown
+      }
 }
 
 /**

@@ -40,6 +40,13 @@ const createTestTransport = (fixture: string, config?: any) => {
 }
 
 describe('Workers Public API (v1.1)', () => {
+  test('output: raw|wrapped is accepted (vs output.mode: raw|wrapped)', async () => {
+    const {transport} = createTestTransport('benchmark.js', {output: 'raw'})
+
+    const result = await transport({anything: 'goes'})
+    expect(result).toEqual({anything: 'goes'})
+  })
+
   test('transport() is simplified to only require "data"', async () => {
     const {transport} = createTestTransport('benchmark.js', {output: {mode: 'raw'}})
 
