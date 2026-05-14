@@ -19,7 +19,7 @@ type SetupOpts = {
 export const compact = (prefix: string = 'ctx') => `${prefix}_${randomBytes(6).toString('hex')}`
 
 export function completeWorkerSetupFromConfig(opts: SetupOpts) {
-  const ctxId = compact('wrk')
+  const ctxId = compact('ctx')
   const ctx: Context = {
     id: ctxId,
     contextId: ctxId,
