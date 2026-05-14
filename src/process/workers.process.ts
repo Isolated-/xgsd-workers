@@ -1,53 +1,158 @@
-import {join} from 'path'
-import {execute, SourceData} from '@xgsd/engine'
-import {compose, Middleware, Next, UserMiddlewareFn} from '../core/compose.js'
+import {compose, Middleware, UserMiddlewareFn} from '../core/compose.js'
 import {Context} from '../core/types.js'
 import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
-import {pathExists} from '../util/fs.js'
 import {createLogger} from '../core/shared.js'
+import {
+  completePreChecks,
+  completeSerialisationCheck,
+  importUserModule,
+  memorySnapshot,
+  numberFixed2,
+  usercodeMiddlewareWrapper,
+  validateUserMiddleware,
+  validateUserModule,
+} from './workers.runtime.js'
 
-export type RunFn<T> = (data: T) => Promise<any>
+setup()
 
-const stdout = createLogger(process.stdout)
-const stderr = createLogger(process.stderr)
-
-const ctx = JSON.parse(process.env.XGSD_CTX ?? '') as Context
-function dispatch(event: 'ALIVE' | 'DONE' | 'ERROR', payload: any) {
-  process.send?.({
-    type: event,
-    ...payload,
-  })
+type RuntimeOpts<T> = {
+  ctx: Context<T>
+  done: (result: any) => void
+  err: (error: any) => void
+  stdout: any
+  stderr: any
+  pulse?: boolean
 }
 
-process.on('exit', (code: number) => {
-  if (code !== 0) {
-    stdout.warn(`container ${process.pid} exited with non-zero code ${code}.`, {code, pid: process.pid})
-    return
-  }
+async function runtime<T>(opts: RuntimeOpts<T>) {
+  const heartbeat = opts.pulse ? startHeartbeat() : undefined
 
-  stdout.log('container exited gracefully', {pid: process.pid})
-})
+  try {
+    const {ctx, done, err, stdout, stderr} = opts
 
-export const rejectionHandler = () => {
-  const handler = (errorOrRejection: any) => {
-    const error = errorOrRejection instanceof Error ? errorOrRejection : null
+    const version = process.env.XGSD_WORKERS_VERSION ?? 'unknown'
 
-    const wrapped: WorkerError = {
-      code: WorkerErrorCode.CODE_FATAL_ERROR,
-      message: error?.message ?? 'uncaught exception',
-      type: 'unknown',
-      stack: error?.stack,
+    completePreChecks(version, stdout, stderr)
+
+    // load user mod
+    let mod
+    try {
+      mod = await importUserModule(ctx.meta.entry)
+    } catch (error: any) {
+      return err(error)
     }
 
-    stderr.error(wrapped.message!, wrapped)
+    // validate default function
+    try {
+      validateUserModule(mod)
+    } catch (error: any) {
+      return err(error)
+    }
 
-    dispatch('ERROR', {error: wrapped})
+    // load user middleware
+    let middleware: Middleware[] = []
+    if (mod.middleware && typeof mod.middleware === 'function') {
+      const middlewareFn = mod.middleware as UserMiddlewareFn
+      const start = performance.now()
+      middleware = (await middlewareFn()) ?? []
+
+      try {
+        validateUserMiddleware(middleware)
+      } catch (error: any) {
+        return err(error)
+      }
+
+      const duration = performance.now() - start
+      stdout.log(`loaded ${middleware.length} middleware functions in ${numberFixed2(duration)} ms`, {
+        duration,
+        tag: 'info',
+      })
+    }
+
+    // if middleware() (register function) is exported but invalid just warn the user
+    // future versions may change this
+    if (mod.middleware && typeof mod.middleware !== 'function') {
+      stderr.warn(`middleware() is type ${typeof mod.middleware} - expected "function". It will not be used.`)
+    }
+
+    const serialisationCheck: Middleware = async (ctx, next) => {
+      async function wrapper(property: 'result' | 'error') {
+        try {
+          ctx[property] = completeSerialisationCheck({
+            data: ctx[property],
+            onError: ctx.meta.output.onError,
+            stderr,
+            property,
+          })
+        } catch (error) {
+          ctx.error = error
+        }
+      }
+
+      await wrapper('error')
+      await wrapper('result')
+    }
+
+    const bootstrap = compose([...middleware, usercodeMiddlewareWrapper(mod.default), serialisationCheck])
+    const {limits} = ctx.meta
+    const {ttl, memory} = limits
+
+    stdout.log(`running worker + ${middleware.length} middleware (ttl: ${ttl} ms, memory: ${memory} MB)`, {
+      tag: 'info',
+      version,
+    })
+
+    const start = performance.now()
+    const result = await bootstrap(ctx)
+    const duration = performance.now() - start
+
+    stdout.log(`worker finished in ${duration.toFixed(2)} ms`, {duration, tag: 'debug'})
+
+    // note: this could resolve vs reject
+    // that covers passthrough use cases where the user
+    // may not be responsible for the circular/unserialisable data
+    if (result.error?.code === WorkerErrorCode.CODE_INVALID_DATA) {
+      return err(result.error)
+    }
+
+    const after = memorySnapshot()
+    stdout.log(`memory usage at end ${after.rss} MB (heap: ${after.heapUsed}MB/${after.heapTotal}MB)`, {
+      workers: version,
+      heapUsed: after.heapUsed,
+      heapTotal: after.heapTotal,
+      rss: after.rss,
+      tag: 'debug',
+    })
+
+    return done(result)
+  } finally {
+    clearInterval(heartbeat)
   }
-
-  process.on('uncaughtException', handler)
-  process.on('unhandledRejection', handler)
 }
 
+/**
+ *  SETUP
+ */
+function setup() {
+  const stdout = createLogger(process.stdout)
+  const stderr = createLogger(process.stderr)
+
+  rejectionHandler(stderr)
+
+  const sigHandler = handleSignalFactory({stdout, stderr})
+  const messageHandler = handleMessageFactory({stdout, stderr})
+
+  // cleanup/exits
+  process.on('SIGTERM', sigHandler)
+  //process.on('SIGINT', sigHandler)
+
+  // start message
+  process.on('message', messageHandler)
+}
+
+/**
+ *  HEARTBEAT
+ */
 function startHeartbeat(interval = 50) {
   function pulse(memory: any) {
     dispatch('ALIVE', {
@@ -72,158 +177,99 @@ function startHeartbeat(interval = 50) {
   }, interval)
 }
 
-export function wrapper(fn: RunFn<unknown>) {
-  return async (ctx: Context<any>, next: Next) => {
-    if (ctx.execute) {
-      const result = await ctx.execute(fn)
+/**
+ *  EXCEPTION/REJECTIONS
+ */
+function rejectionHandler(stderr: any) {
+  const handler = (errorOrRejection: any) => {
+    const error = errorOrRejection instanceof Error ? errorOrRejection : null
 
-      ctx.result = result.data
-      ctx.error = result.error
-    } else {
-      // dont send context into worker
-      // middleware can be used for that
-      const {data, error} = await execute(ctx.data as SourceData, fn)
-
-      ctx.result = data
-      ctx.error = error
+    const wrapped: WorkerError = {
+      code: WorkerErrorCode.CODE_FATAL_ERROR,
+      message: error?.message ?? 'uncaught exception',
+      type: 'unknown',
+      stack: error?.stack,
     }
 
-    await next()
+    stderr.error(wrapped.message!, wrapped)
+    const done = dispatch('ERROR', {error: wrapped})
+
+    // NOTE: this failsafe was added
+    // to protect against dangling processes
+    if (!done) {
+      process.exit(10)
+    }
+  }
+
+  process.on('uncaughtException', handler)
+  process.on('unhandledRejection', handler)
+}
+
+/**
+ *  EXIT HANDLER
+ */
+
+function handleSignalFactory(opts: {stdout: any; stderr: any}) {
+  const {stderr} = opts
+
+  return async function (sig: NodeJS.Signals) {
+    if (sig !== 'SIGTERM') return
+
+    stderr.warn(`container received ${sig} - shutting down`)
+
+    // handle clean up
+    process.exit(0)
   }
 }
 
-async function main(ctx: Context) {
-  const heartbeat = startHeartbeat()
+/**
+ *  MESSAGE HANDLER
+ */
+function handleMessageFactory(opts: {stdout: any; stderr: any}) {
+  const {stdout, stderr} = opts
 
-  rejectionHandler()
+  return async function (msg: any) {
+    if (msg.type !== 'START') return
 
-  const {entry, limits} = ctx.meta
-
-  stdout.log(`container started (pid: ${process.pid})`, {stage: 'runtime', pid: process.pid})
-
-  try {
-    if (!(await pathExists(entry))) {
-      const error: WorkerError = {
-        code: WorkerErrorCode.CODE_INVALID_ENTRY_FILE,
-        message: `entry file "${entry}" not found`,
-        type: 'user',
-      }
-
-      stderr.error(error.message!, error)
-
-      dispatch('ERROR', {error})
-      return
+    const done = (result: any) => {
+      handleResult(result)
     }
 
-    let mod = undefined
-    try {
-      mod = await import(entry)
-    } catch (error: any) {
-      const err: WorkerError = {
-        code: WorkerErrorCode.CODE_INVALID_ENTRY_FILE,
-        message: `${entry} cannot be loaded because there's an error in your code.\nError: "${error?.message ?? 'unknown - check logs'}"`,
-        type: 'user',
-        stack: error.stack,
-      }
-
-      stderr.error(`(${err.code}) ${err.message}`, {
-        code: err.code,
-        stack: err.stack,
-      })
-
-      dispatch('ERROR', {error: err, original: JSON.stringify(error)})
-      return
+    const err = (error: any) => {
+      handleError(error)
     }
 
-    if (!mod.default || typeof mod.default !== 'function') {
-      const error: WorkerError = {
-        code: WorkerErrorCode.CODE_INVALID_DEFAULT_FUNCTION,
-        message: `default must be a function (received: ${typeof mod.default})`,
-        type: 'user',
-      }
-
-      dispatch('ERROR', {error})
-      return
-    }
-
-    // load middleware
-    let middleware: Middleware[] = []
-    if (mod.middleware && typeof mod.middleware === 'function') {
-      const middlewareFn = mod.middleware as UserMiddlewareFn
-      const start = performance.now()
-      middleware = (await middlewareFn()) ?? []
-
-      if (!Array.isArray(middleware) || middleware.filter((m) => typeof m !== 'function').length > 0) {
-        const error: WorkerError = {
-          code: WorkerErrorCode.CODE_INVALID_MIDDLEWARE_FUNCTION,
-          message: 'middleware not configured correctly',
-          type: 'user',
-        }
-
-        dispatch('ERROR', {error})
-        return
-      }
-
-      const dt = performance.now() - start
-      stdout.log(`loaded ${middleware.length} middleware functions`, {stage: 'middleware', duration: dt})
-    }
-
-    // runtime
-    const runtime = compose([...middleware, wrapper(mod.default)])
-    const version = process.env.XGSD_WORKER_VERSION ?? 'unknown'
-    const {ttl, memory} = limits
-
-    stdout.log(`worker running with version ${version} (ttl: ${ttl}, memory: ${memory})`, {
-      stage: 'runtime',
-      version,
-      ttl,
-      memory,
+    await runtime({
+      ctx: msg.ctx,
+      done,
+      err,
+      stdout,
+      stderr,
+      pulse: true,
     })
-
-    const start = performance.now()
-
-    const result = await runtime(ctx)
-
-    const ms = performance.now() - start
-
-    stdout.log(`worker finished in ${ms.toFixed(2)} ms`, {stage: 'runtime', version, duration: ms})
-
-    // test for bad serialisation
-    try {
-      JSON.stringify({result: ctx.result, error: ctx.error})
-    } catch (e: any) {
-      const error: WorkerError = {
-        code: WorkerErrorCode.CODE_INVALID_DATA,
-        message: `"ctx" is not serialisable, check middleware/worker return values.`,
-        stack: e?.stack,
-      }
-
-      const {onError} = ctx.meta.output
-      if (!onError || onError === 'throw') {
-        stderr.error(error.message!, error)
-        dispatch('ERROR', {error})
-        return
-      }
-
-      if (onError === 'drop') {
-        stdout.warn(`ctx.result has been set to null as "ctx" is not serialisable`, error)
-        result.result = null
-      }
-    }
-
-    if (result.error) {
-      stdout.warn(`worker finished with errors (${ctx.error?.code ?? ctx.error?.message ?? 'unknown'})`, {
-        stage: 'runtime',
-        error: ctx.error?.message ?? 'unknown',
-      })
-
-      stderr.error(result?.error?.message ?? ctx.error?.message, result.error)
-    }
-
-    dispatch('DONE', {result, memory: process.memoryUsage().heapUsed})
-  } finally {
-    clearInterval(heartbeat)
   }
 }
 
-main(ctx)
+/**
+ *  MISC HANDLERS
+ */
+function handleError(error: Record<string, any>) {
+  dispatch('ERROR', {error})
+}
+
+function handleResult(result: Record<string, any>) {
+  dispatch('DONE', {result})
+}
+
+function dispatch(event: 'ALIVE' | 'DONE' | 'ERROR', payload: any) {
+  if (!process.connected || !process.send) {
+    return false
+  }
+
+  process.send({
+    type: event,
+    ...payload,
+  })
+
+  return true
+}
