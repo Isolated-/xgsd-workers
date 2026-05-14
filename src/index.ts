@@ -239,9 +239,8 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
 
   console?:
     | 'debug'
-    | 'default'
     | {
-        mode: 'debug' | 'default'
+        mode: 'debug'
       }
 
   /**
