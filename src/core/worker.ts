@@ -4,6 +4,8 @@ import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 import {createSignalLogger, SignalContext} from './signal.js'
 import {formatWorkerResult} from '../util/format.js'
 import {fileURLToPath} from 'url'
+import {DEFAULTS} from '../constants.js'
+import {numberFixed2} from '../process/workers.runtime.js'
 
 type ChildMessage<T = unknown> =
   | {type: 'ALIVE'; error: undefined; result: undefined}
@@ -54,14 +56,21 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
     logger.system('container manager started')
 
     let completed = false
+    let killed = false
 
-    const cleanup = () => {
+    const cleanup = (sig: NodeJS.Signals = 'SIGINT') => {
+      if (sig === 'SIGKILL' && !killed) {
+        killed = true
+        child.kill(sig)
+        return
+      }
+
       if (child.connected) {
         logger.system('disconnecting container')
 
         child.removeAllListeners('message')
 
-        child.disconnect()
+        child.disconnect(sig)
       }
     }
 
@@ -120,8 +129,50 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
         duration: performance.now() - start,
       })
 
+      // centralise error logging here
+      // vs in child process
+      logger.error(`${msg.error?.message ?? 'unknown'} (${msg.error?.code ?? 'unknown'})`, msg.error ?? undefined)
+
       reject(msg.error)
       cleanup()
+    }
+
+    let signalCount = 0
+
+    function termination() {
+      if (killed) return
+
+      const error = {
+        code: WorkerErrorCode.CODE_WORKER_ABORTED,
+        message: `worker has been aborted`,
+        type: 'user',
+      }
+
+      reject(error)
+      cleanup('SIGKILL')
+    }
+
+    let timeout: NodeJS.Timeout
+    function handleSignal(sig: NodeJS.Signals) {
+      signalCount++
+
+      if (signalCount === 1) {
+        logger.warn(
+          `${sig} received, process will shutdown in ${numberFixed2(DEFAULTS.defaultTerminationTime / 1000)}s. Use CTRL+C to force shutdown.`,
+        )
+
+        cleanup('SIGTERM')
+
+        timeout = setTimeout(termination, DEFAULTS.defaultTerminationTime)
+        return
+      }
+
+      if (signalCount === 2) {
+        logger.warn(`final ${sig} received, forcing process to exit`)
+
+        clearTimeout(timeout)
+        termination()
+      }
     }
 
     function finish(msg: ChildMessage) {
@@ -163,6 +214,8 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
 
       logger.warn(`unknown message type ${(msg as any).type}`)
     })
+
+    process.on('SIGINT', handleSignal)
   })
 }
 
@@ -192,7 +245,7 @@ export async function runWorker<T = any>(opts: {ctx: Context<T>; signal: SignalC
     execArgv: [`--max-old-space-size=512`],
     env: {
       ...ctx.env, // <- this may not be needed as dotenv can be used inside the worker
-      XGSD_WORKER_VERSION: ctx.meta.version,
+      XGSD_WORKERS_VERSION: ctx.meta.version,
     },
   })
 

@@ -1,5 +1,6 @@
-import {RunFn} from '../process/workers.process.js'
 import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
+
+export type RunFn<T, R = T> = (data: T) => Promise<T>
 
 /**
  *  WORKER RESULT TYPES
