@@ -1,4 +1,4 @@
-import {Context, WorkerResult} from './types.js'
+import {Context, RunFn, WorkerResult} from './types.js'
 import {execute} from '@xgsd/engine'
 
 export type Next = () => Promise<void>
@@ -12,15 +12,9 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
     let index = -1
     let start = performance.now()
 
-    let res: any = {
-      version: 'v1',
-      ok: undefined,
-      result: undefined,
-      error: undefined,
-      duration: undefined,
-    }
+    let res: WorkerResult<unknown>
 
-    async function dispatch(i: number): Promise<void> {
+    async function dispatch(i: number): Promise<any> {
       if (i <= index) {
         throw new Error('next() called multiple times')
       }
@@ -33,32 +27,46 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
         return
       }
 
-      const executeWrapper = async (ctx: Context<T>) => {
-        await fn(ctx, async () => {
-          await dispatch(i + 1)
-        })
-
-        return ctx
-      }
-
-      const result = await execute(ctx, executeWrapper)
-
-      // clean this up when unit testing
-      if (result.error || result.data?.error) {
-        res.ok = false
-        res.result = null
-        res.error = result.error ?? result.data?.error
-      } else {
-        res.ok = true
-        res.result = result.data?.result ?? null
-        res.error = null
-      }
-
-      res.duration = performance.now() - start
+      const wrapper = await executeAdapter({idx: i, ctx, dispatch, fn})
+      return execute(ctx, wrapper)
     }
 
-    await dispatch(0)
+    const result = await dispatch(0)
+
+    const {error, data} = result
+    const duration = performance.now() - start
+    res = createWorkerResult({error, data, duration})
 
     return res
   }
+}
+
+async function executeAdapter<T>(opts: {
+  idx: number
+  ctx: Context<T>
+  dispatch: (idx: number) => Promise<void>
+  fn: Middleware
+}) {
+  const {dispatch, fn, idx} = opts
+  return async (ctx: Context<T>) => {
+    await fn(ctx, async () => {
+      await dispatch(idx + 1)
+    })
+
+    return ctx
+  }
+}
+
+function createWorkerResult<T>(opts: {error: any; data: T | null; duration: number}): WorkerResult<T> {
+  const {error, data, duration} = opts
+
+  const res = {
+    version: 'v1',
+    ok: error === null,
+    result: data ?? null,
+    error: error ?? null,
+    duration,
+  }
+
+  return res as WorkerResult<T>
 }
