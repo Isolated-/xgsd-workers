@@ -167,12 +167,6 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
         if (completed) return
 
         const duration = Number((performance.now() - start).toFixed(2))
-        logger.activation('worker guard suspended activation', {
-          version: ctx.meta.version,
-          ok: false,
-          error: reason.message,
-          duration,
-        })
 
         await cleanup()
 
@@ -195,13 +189,6 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
     })
 
     async function fatal(msg: ChildMessage) {
-      logger.activation('fatal', {
-        version: ctx.meta.version,
-        ok: false,
-        error: msg.error?.code ?? msg.error?.message ?? 'unknown',
-        duration: performance.now() - start,
-      })
-
       // centralise error logging here
       // vs in child process
       logger.error(`${msg.error?.message ?? 'unknown'} (${msg.error?.code ?? 'unknown'})`, msg.error ?? undefined)
@@ -213,13 +200,6 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
     async function finish(msg: ChildMessage) {
       const {result, memoryUsage} = msg as any
       const duration = performance.now() - start
-
-      logger.activation(`activation completed in ${duration.toFixed(2)} ms`, {
-        version: ctx.meta.version,
-        ok: true,
-        error: null,
-        duration,
-      })
 
       logger.metric({
         version: ctx.meta.version,
@@ -233,11 +213,15 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
       await cleanup()
 
       // normal errors are wrapped inside the process
-      if (ctx.meta.output.mode === 'raw') {
+      resolve(result)
+
+      // note: don't do this here
+      // push this to the transport boundary
+      /*if (ctx.meta.output.mode === 'raw') {
         resolve(result?.result)
       } else {
         resolve(result)
-      }
+      }*/
     }
   })
 }

@@ -1,17 +1,15 @@
 import {
   Activation,
-  ActivationHandler,
   Context,
   ContextMetadata,
-  WorkerResult,
   WorkerOutputMode,
   MemoryType,
   ErrorBehaviour,
   GuardErrorBehaviour,
-  TransportResult,
+  ActivationHandler,
 } from './core/types.js'
 import {runWorker} from './core/worker.js'
-import {completeWorkerSetupFromConfig} from './util/setup.js'
+import {compact, completeWorkerSetupFromConfig} from './util/setup.js'
 import {readFileSync} from 'fs'
 import {StreamLike} from './types/stream-like.type.js'
 import {WorkerErrorCode, WorkerError} from './types/error.types.js'
@@ -25,8 +23,10 @@ import {
   SystemSignal,
   SignalType,
 } from './types/signal.types.js'
-import {randomUUID} from 'crypto'
-import {createSignalContext} from './core/signal.js'
+import {createHash, randomBytes, randomUUID} from 'crypto'
+import {createSignalContext, createSignalLogger} from './core/signal.js'
+import {formatWrappedTransportResult} from './util/format.js'
+import {SchemaVersion, TransportResult, WorkerResult} from './types/result.types.js'
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 export const version = packageJson.version
@@ -201,6 +201,8 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
    * Path to the worker entry file.
    */
   entry: string
+
+  schemaVersion?: SchemaVersion
 
   /**
    * Writable stream used for runtime signals/logs.
@@ -387,35 +389,129 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
  *
  * @since v1
  */
-export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>(
-  opts: CreateTransportOpts<Mode>,
-): ActivationHandler<Mode> {
+export function createTransport<
+  const Mode extends WorkerOutputMode = 'wrapped',
+  const Version extends SchemaVersion = 'v1',
+>(opts: CreateTransportOpts<Mode>): ActivationHandler<Mode> {
   const {limits, entry, output} = opts
   const stream = opts.stream ?? process.stdout
-
+  const schemaVersion = opts.schemaVersion ?? 'v1'
   const config = {
     entry,
     limits,
     output,
+    schemaVersion,
   } as CreateTransportOpts
 
   const {ctx, signal} = completeWorkerSetupFromConfig({stream, config})
 
+  let logger = createSignalLogger(signal)
+  logger.system(`new context started (ctx: ${ctx.id})`)
+
   const handle: ActivationHandler<Mode> = async (activation) => {
+    const id = compact('act')
+
+    const normalised = normaliseActivation(activation)
+
     const activationCtx = {
       ...ctx,
-      id: activation?.id ?? randomUUID(),
-      data: activation?.data,
-      env: activation?.env ?? opts.env ?? {},
+      ...normalised,
+      activationId: normalised?.id ?? id,
     }
 
-    signal.setId(activationCtx.id)
+    logger.system(`activation started (act: ${activationCtx.activationId}, ctx: ${ctx.id})`)
 
-    return runWorker({
-      ctx: activationCtx,
-      signal,
-    }) as Promise<any>
+    signal.setId(activationCtx.activationId)
+
+    const record = activationRecord({
+      logger,
+      version,
+    })
+
+    try {
+      const result = (await runWorker({
+        ctx: activationCtx,
+        signal,
+      })) as any
+
+      // activation record
+      record.success(result.duration)
+
+      if (ctx.meta.output.mode === 'raw') {
+        return result.ok ? result.result : result.error
+      }
+
+      let formatSubject: TransportResult<'wrapped'> = {
+        version: 'v1',
+        ok: true,
+        result: result.result,
+        error: result.error,
+        duration: result.duration,
+      }
+
+      if (schemaVersion === 'v1.1') {
+        formatSubject = {...formatSubject, version: 'v1.1', activationId: activationCtx.activationId}
+      }
+
+      return formatWrappedTransportResult<Version>(formatSubject)
+    } catch (error: any) {
+      record.error(error?.code ?? error?.message ?? 'unknown', 0)
+
+      throw error
+    }
   }
 
   return handle
+}
+
+export function isActivation<T = unknown>(input: unknown): input is Activation<T> {
+  if (input === null || typeof input !== 'object') {
+    return false
+  }
+
+  return 'data' in input || 'env' in input || 'id' in input || 'cwd' in input
+}
+
+function normaliseActivation<T>(input: T | Activation<T>): Activation<T> {
+  if (isActivation(input)) {
+    return input as Activation<T>
+  }
+
+  return {
+    data: input as T,
+  }
+}
+
+type ActivationRecordOpts = {
+  logger: any
+  version: string
+}
+
+// move these
+const activationRecord = (opts: ActivationRecordOpts) => {
+  const {logger, version} = opts
+
+  return {
+    success: (duration: number, message?: string) => {
+      let msg = message ?? `activation completed in ${duration} ms`
+
+      logger.activation(msg, {
+        version,
+        ok: true,
+        error: null,
+        duration,
+      })
+    },
+
+    error: (error: string, duration: number, message?: string) => {
+      let msg = message ?? `activation failed with ${error}`
+
+      logger.activation(msg, {
+        version,
+        ok: false,
+        error,
+        duration,
+      })
+    },
+  }
 }

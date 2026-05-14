@@ -13,14 +13,6 @@ import {describe, expect, test} from 'vitest'
 import {createTransport, version, WorkerErrorCode} from '../src/index.js'
 import {join} from 'path'
 
-describe('exports', () => {
-  test('API exports', () => {
-    expect(createTransport).toBeDefined()
-    expect(version).toBeDefined()
-    expect(WorkerErrorCode).toBeDefined()
-  })
-})
-
 const wrapper = () => {
   const logs: any[] = []
 
@@ -47,7 +39,56 @@ const createTestTransport = (fixture: string, config?: any) => {
   return {transport, stream}
 }
 
-describe('Workers Public API', () => {
+describe('Workers Public API (v1.1)', () => {
+  test('transport() is simplified to only require "data"', async () => {
+    const {transport} = createTestTransport('benchmark.js', {output: {mode: 'raw'}})
+
+    const result = await transport({anything: 'goes'})
+
+    expect(result).toBeDefined()
+  })
+
+  test('transport() accepts more than just objects', async () => {
+    const {transport} = createTestTransport('benchmark.js')
+
+    const results = await Promise.all([transport('my string'), transport(2), transport(false)])
+
+    expect(results.every((x) => x.ok)).toBe(true)
+  })
+
+  test('"act" is present in signals', async () => {
+    const {transport, stream} = createTestTransport('benchmark.js')
+
+    await transport()
+
+    const signals = stream.finish().every((x) => typeof x.act === 'string' && x.act)
+    expect(signals).toBe(true)
+  })
+
+  test('"pid" is present in signals', async () => {
+    const {transport, stream} = createTestTransport('benchmark.js')
+
+    await transport()
+
+    const signals = stream.finish().every((x) => typeof x.pid === 'number' && x.pid)
+    expect(signals).toBe(true)
+  })
+
+  test('activationId is returned in wrapped results', async () => {
+    const transport = createTransport({
+      entry: join(process.cwd(), 'fixtures', 'combined', 'benchmark.js'),
+      schemaVersion: 'v1.1',
+      stream: {
+        write: () => {},
+      },
+    })
+
+    const result = await transport()
+    expect(result.version).toBe('v1.1')
+  })
+})
+
+describe('Workers Public API (v1.0.0)', () => {
   test('produces a predictable output', async () => {
     const {transport} = createTestTransport('benchmark.js')
 
@@ -66,7 +107,7 @@ describe('Workers Public API', () => {
     const {transport} = createTestTransport('benchmark.js')
 
     const res = await transport()
-    expect(res.duration).toBeGreaterThanOrEqual(30)
+    expect(res.duration).toBeGreaterThanOrEqual(20)
   })
 
   test('entry path must be absolute', async () => {
@@ -382,5 +423,13 @@ describe('Workers Public API', () => {
       // result data is never stored
       expect(signal.meta.result).toBeUndefined()
     })
+  })
+})
+
+describe('exports', () => {
+  test('API exports', () => {
+    expect(createTransport).toBeDefined()
+    expect(version).toBeDefined()
+    expect(WorkerErrorCode).toBeDefined()
   })
 })

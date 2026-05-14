@@ -67,7 +67,7 @@ export function createSignalContext(opts: {
 }): SignalContext {
   const {ctx, stream, mapper} = opts
 
-  let id = ctx?.id ?? 'unknown'
+  let id = ctx?.activationId ?? 'unknown'
 
   return {
     setId: (newId: string) => {
@@ -75,7 +75,8 @@ export function createSignalContext(opts: {
     },
     emit<T extends Record<string, unknown>>(signal: EmitOpts<T>) {
       const e: Signal<T> = {
-        ctx: id ?? 'unknown',
+        ctx: ctx?.id ?? 'unknown',
+        act: id,
         pid: signal.pid ?? process.pid,
         timestamp: Date.now(),
         type: signal.type,

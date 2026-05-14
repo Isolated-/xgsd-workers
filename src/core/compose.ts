@@ -1,4 +1,5 @@
-import {Context, RunFn, WorkerResult} from './types.js'
+import {WorkerResult} from '../types/result.types.js'
+import {Context, RunFn} from './types.js'
 import {execute} from '@xgsd/engine'
 
 export type Next = () => Promise<void>

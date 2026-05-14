@@ -1,5 +1,6 @@
-import {WorkerResult} from '../core/types.js'
+import {SchemaVersion, TransportResult, WorkerResult} from '../types/result.types.js'
 import {Signal} from '../types/signal.types.js'
+
 export function normaliseKeys(value: any): any {
   if (Array.isArray(value)) {
     return value.map(normaliseKeys)
@@ -18,6 +19,22 @@ export function normaliseKeys(value: any): any {
   return value
 }
 
+export function formatWrappedTransportResult<const Version extends SchemaVersion = 'v1'>(
+  res: TransportResult<'wrapped'>,
+): TransportResult<'wrapped'> {
+  const {version, result, error, duration} = res
+
+  const ok = !error
+
+  if (version === 'v1.1') {
+    const {activationId} = res
+
+    return {activationId, version, ok, result, error, duration} as TransportResult<'wrapped'>
+  }
+
+  return {version, ok, result, error, duration} as TransportResult<'wrapped'>
+}
+
 export function formatWorkerResult(opts: {result?: any; error?: any; duration: number}): WorkerResult<any> {
   return {
     version: 'v1',
@@ -31,6 +48,7 @@ export function formatWorkerResult(opts: {result?: any; error?: any; duration: n
 export function normaliseSignal<T extends Record<string, unknown>>(signal: Signal<T>): Signal<T> {
   return {
     ctx: signal.ctx,
+    act: signal.act,
     pid: signal.pid,
     type: signal.type,
     message: signal.message,
