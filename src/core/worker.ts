@@ -70,6 +70,7 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
         logger.system(`disconnecting container (pid: ${child.pid ?? 'unknown'})`)
 
         child.removeAllListeners('message')
+        process.removeAllListeners('SIGINT')
 
         child.disconnect(sig)
       }

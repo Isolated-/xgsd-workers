@@ -5,7 +5,7 @@
 
 ---
 
-**Workers.js** runs your code in a container that handles most failures for you.
+**Workers.js** runs your code in isolation for predictable execution.
 
 ## Install
 
@@ -24,7 +24,7 @@ A **Worker** is a simple async function, usually exported from `worker.js`:
 ```javascript
 import axios from 'axios'
 
-export default async function worker(data) {
+export default async (data) => {
   const url = 'https://timeapi.io/api/Time/current/zone?timeZone=Europe/London'
 
   const json = (await axios.get(url)).data
