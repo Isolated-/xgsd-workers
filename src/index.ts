@@ -1,15 +1,63 @@
-import {ActivationHandler, WorkerResult, WorkerOutputMode, MemoryType} from './core/types.js'
-import {WorkerError, WorkerErrorCode} from './types/error.types.js'
+import {
+  Activation,
+  ActivationHandler,
+  Context,
+  ContextMetadata,
+  WorkerResult,
+  WorkerOutputMode,
+  MemoryType,
+  ErrorBehaviour,
+  GuardErrorBehaviour,
+} from './core/types.js'
 import {runWorker} from './core/worker.js'
 import {completeWorkerSetupFromConfig} from './util/setup.js'
 import {readFileSync} from 'fs'
+import {StreamLike} from './types/stream-like.type.js'
+import {WorkerErrorCode, WorkerError} from './types/error.types.js'
+import {Next, Middleware} from './core/compose.js'
+import {
+  Signal,
+  ActivationSignal,
+  LogSignal,
+  ErrorSignal,
+  GenericSignal,
+  SystemSignal,
+  SignalType,
+} from './types/signal.types.js'
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
-
 export const version = packageJson.version
 
-import {StreamLike} from './types/stream-like.type.js'
-export {StreamLike}
+// public types
+export {
+  // misc
+  Activation,
+  ActivationHandler,
+  StreamLike,
+
+  // middleware
+  Next,
+  Middleware,
+
+  // context
+  Context,
+  ContextMetadata,
+
+  // worker types
+  WorkerError,
+  WorkerErrorCode,
+  WorkerResult,
+  WorkerOutputMode,
+
+  // signals
+  Signal,
+  ActivationSignal,
+  LogSignal,
+  ErrorSignal,
+  GenericSignal,
+  SystemSignal,
+  SignalType,
+}
 
 /**
  * Configuration options for `createTransport()`.
@@ -179,9 +227,9 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
      *  added in v1.0.3
      *  when worker guard is triggered promise will be rejected vs resolved
      */
-    on?: 'throw'
+    onError?: GuardErrorBehaviour
 
-    [key: string]: undefined | number | MemoryType | string
+    [key: string]: unknown
   }
 
   /**
@@ -195,6 +243,14 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
      * - `raw` → returns worker result/error directly
      */
     mode?: Mode
+
+    /**
+     *  added in v1.0.3
+     *  determines what to when data can't be serialised
+     */
+    onError?: ErrorBehaviour
+
+    [key: string]: unknown
   }
 }
 
@@ -353,5 +409,3 @@ export function createTransport<Mode extends WorkerOutputMode = 'wrapped'>(
     return runWorker({ctx: activationCtx, signal}) as Promise<WorkerResult<any>>
   }
 }
-
-export {WorkerError, WorkerErrorCode}
