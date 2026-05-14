@@ -137,8 +137,8 @@ export function completePreChecks(version: string, stdout: any, stderr: any) {
     tag: 'debug',
   })
 
-  stdout.log(`@xgsd/workers version ${version}`, {tag: 'debug', workers: version})
-  stdout.log(`Node.js version ${process.version} (${process.platform} ${process.arch})`, {
+  stdout.log(`@xgsd/workers v${version}`, {tag: 'debug', workers: version})
+  stdout.log(`Node.js ${process.version} (${process.platform} ${process.arch})`, {
     tag: 'debug',
     node: process.version,
     arch: process.arch,

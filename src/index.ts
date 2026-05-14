@@ -25,6 +25,7 @@ import {
   SystemSignal,
   SignalType,
 } from './types/signal.types.js'
+import {randomUUID} from 'crypto'
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 export const version = packageJson.version
@@ -402,7 +403,7 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
   const handle: ActivationHandler<Mode> = async (activation) => {
     const activationCtx = {
       ...ctx,
-      id: activation?.id ?? ctx.id,
+      id: activation?.id ?? randomUUID(),
       data: activation?.data,
       env: activation?.env ?? opts.env ?? {},
     }

@@ -1,6 +1,6 @@
 // benchmarks/concurrency.js
 
-import {mkdirSync, writeFileSync} from 'node:fs'
+import {createWriteStream, mkdirSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
 import {performance} from 'node:perf_hooks'
 import {runWithConcurrency} from '@xgsd/engine'
@@ -15,9 +15,7 @@ function formatMB(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(2)}MB`
 }
 
-const stream = {
-  write() {},
-}
+const stream = createWriteStream('signals.jsonl')
 
 const handler = createTransport({
   entry: join(process.cwd(), 'benchmarks', 'worker.js'),
