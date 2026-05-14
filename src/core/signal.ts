@@ -1,23 +1,23 @@
 import {StreamLike} from '../types/stream-like.type.js'
 import {
   ActivationSignal,
-  Context,
   ErrorSignal,
   GenericSignal,
-  LogSignal,
   MetricSignal,
   Signal,
   SystemSignal,
-} from './types.js'
+  LogSignal,
+} from '../types/signal.types.js'
+import {Context} from './types.js'
 
 type EmitOpts<T extends Record<string, unknown>> =
-  | {type: 'generic'; message: string; meta?: T}
-  | {type: 'activation'; message: string; meta: ActivationSignal}
-  | {type: 'log'; message: string; meta?: LogSignal}
-  | {type: 'warn'; message: string; meta?: LogSignal}
-  | {type: 'system'; message: string; meta?: SystemSignal}
-  | {type: 'error'; message: string; meta?: ErrorSignal}
-  | {type: 'metric'; message: string; meta?: MetricSignal}
+  | {pid?: number; type: 'generic'; message: string; meta?: T}
+  | {pid?: number; type: 'activation'; message: string; meta: ActivationSignal}
+  | {pid?: number; type: 'log'; message: string; meta?: LogSignal}
+  | {pid?: number; type: 'warn'; message: string; meta?: LogSignal}
+  | {pid?: number; type: 'system'; message: string; meta?: SystemSignal}
+  | {pid?: number; type: 'error'; message: string; meta?: ErrorSignal}
+  | {pid?: number; type: 'metric'; message: string; meta?: MetricSignal}
 
 export const DEFAULT_SIGNAL_FILE_NAME = 'signals.jsonl' as const
 
@@ -70,6 +70,7 @@ export function createSignalContext(opts: {
     emit<T extends Record<string, unknown>>(signal: EmitOpts<T>) {
       const e: Signal<T> = {
         ctx: ctx?.id ?? 'unknown',
+        pid: signal.pid ?? process.pid,
         timestamp: Date.now(),
         type: signal.type,
         message: signal.message,

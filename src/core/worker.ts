@@ -191,11 +191,12 @@ export async function runWorker<T = any>(opts: {ctx: Context<T>; signal: SignalC
     // so use carefully
     execArgv: [`--max-old-space-size=512`],
     env: {
-      ...ctx.env,
+      ...ctx.env, // <- this may not be needed as dotenv can be used inside the worker
       XGSD_WORKER_VERSION: ctx.meta.version,
-      XGSD_CTX: JSON.stringify(ctx),
     },
   })
+
+  child.send({type: 'START', ctx})
 
   return containerManager<T>({child, signal, ctx, start})
 }

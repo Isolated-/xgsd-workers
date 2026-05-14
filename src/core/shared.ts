@@ -5,15 +5,16 @@ export function createLogger(s?: StreamLike) {
 
   return {
     log: (message: string, meta?: Record<string, unknown>) => {
-      stream.write(JSON.stringify({__sys: true, type: 'system', message, meta}) + '\n')
+      stream.write(JSON.stringify({__sys: true, pid: process.pid, type: 'system', message, meta}) + '\n')
     },
     metric: (meta: Record<string, unknown>) => {
-      stream.write(JSON.stringify({__sys: true, type: 'metric', message: 'metric', meta}) + '\n')
+      stream.write(JSON.stringify({__sys: true, pid: process.pid, type: 'metric', message: 'metric', meta}) + '\n')
     },
     error: (message: string, meta?: Record<string, unknown>) => {
       stream.write(
         JSON.stringify({
           __sys: true,
+          pid: process.pid,
           type: 'error',
           message: message,
           meta,
@@ -24,6 +25,7 @@ export function createLogger(s?: StreamLike) {
       stream.write(
         JSON.stringify({
           __sys: true,
+          pid: process.pid,
           type: 'warn',
           message: message,
           meta,
