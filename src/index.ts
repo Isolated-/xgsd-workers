@@ -464,7 +464,7 @@ export function createTransport<
         formatSubject = {...formatSubject, version: 'v1.1', activationId: activationCtx.activationId}
       }
 
-      return formatWrappedTransportResult<Version>(formatSubject)
+      return formatWrappedTransportResult(formatSubject)
     } catch (error: any) {
       record.error(error?.code ?? error?.message ?? 'unknown', performance.now() - start)
 

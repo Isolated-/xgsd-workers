@@ -21,9 +21,7 @@ export function normaliseKeys(value: any): any {
   return value
 }
 
-export function formatWrappedTransportResult<const Version extends SchemaVersion = 'v1'>(
-  res: TransportResult<'wrapped'>,
-): TransportResult<'wrapped'> {
+export function formatWrappedTransportResult(res: TransportResult<'wrapped'>): TransportResult<'wrapped'> {
   const {version, result, error, duration} = res
 
   const ok = !error
