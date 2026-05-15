@@ -6,30 +6,25 @@ import {Middleware, Next} from '../core/compose.js'
 import {Context, ErrorBehaviour, RunFn} from '../core/types.js'
 import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 import {pathExists} from '../util/fs.js'
+import {workerError} from '../util/format.js'
 
 export async function importUserModule(entry: string) {
   if (!(await pathExists(entry))) {
-    const err: WorkerError = {
+    throw workerError(`entry file "${entry}" not found`, {
       code: WorkerErrorCode.CODE_INVALID_ENTRY_FILE,
-      message: `entry file "${entry}" not found`,
       type: 'user',
-    }
-
-    throw err
+    })
   }
 
   try {
     return await import(entry)
   } catch (error: any) {
-    // normalise error
-    const err: WorkerError = {
+    const message = `"${entry}" cannot be loaded. Error: ${error?.message ?? 'unknown - check logs'}`
+    throw workerError(message, {
       code: WorkerErrorCode.CODE_INVALID_ENTRY_FILE,
-      message: `${entry} cannot be loaded because there's an error in your code. Error: "${error?.message ?? 'unknown - check logs'}"`,
       type: 'user',
-      stack: error.stack,
-    }
-
-    throw err
+      stack: error?.stack,
+    })
   }
 }
 
@@ -83,13 +78,10 @@ export function validateUserModule(mod: any): boolean {
     return true
   }
 
-  const error: WorkerError = {
+  throw workerError(`"default" must be a function (received: ${typeof mod.default})`, {
     code: WorkerErrorCode.CODE_INVALID_DEFAULT_FUNCTION,
-    message: `default must be a function (received: ${typeof mod.default})`,
     type: 'user',
-  }
-
-  throw error
+  })
 }
 
 export function validateUserMiddleware(middleware: Middleware[]): boolean {
@@ -99,13 +91,10 @@ export function validateUserMiddleware(middleware: Middleware[]): boolean {
     return true
   }
 
-  const error: WorkerError = {
+  throw workerError(`Some or all of your middleware functions are invalid. Indexes: ${nonFns.join(',')}.`, {
     code: WorkerErrorCode.CODE_INVALID_MIDDLEWARE_FUNCTION,
-    message: `Some or all of your middleware functions are invalid, indexes: ${nonFns.join(',')}.`,
     type: 'user',
-  }
-
-  throw error
+  })
 }
 
 export function memorySnapshot() {
@@ -172,11 +161,11 @@ export function completeSerialisationCheck<T>(opts: CheckSerialisationOpts<T>): 
 
     return data
   } catch (err: any) {
-    const error: WorkerError = {
+    const error = workerError(`"ctx.${property}" is not serialisable`, {
       code: WorkerErrorCode.CODE_INVALID_DATA,
-      message: `"ctx.${property}" is not serialisable, check middleware/worker return values.`,
       stack: err?.stack,
-    }
+      hint: `check middleware/worker return values + ensure no circular returns.`,
+    })
 
     if (onError === 'drop') {
       stderr.warn(`"ctx.${property}" has been set to null as "ctx.${property}" is not serialisable`, error)

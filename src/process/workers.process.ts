@@ -12,6 +12,7 @@ import {
   validateUserMiddleware,
   validateUserModule,
 } from './workers.runtime.js'
+import {workerError} from '../util/format.js'
 
 setup()
 
@@ -180,12 +181,9 @@ function rejectionHandler(stderr: any) {
   const handler = (errorOrRejection: any) => {
     const error = errorOrRejection instanceof Error ? errorOrRejection : null
 
-    const wrapped: WorkerError = {
-      code: WorkerErrorCode.CODE_FATAL_ERROR,
-      message: error?.message ?? 'uncaught exception',
-      type: 'unknown',
+    const wrapped = workerError(error?.message ?? 'uncaught exception', {
       stack: error?.stack,
-    }
+    })
 
     stderr.error(wrapped.message!, wrapped)
     const done = dispatch('ERROR', {error: wrapped})

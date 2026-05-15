@@ -15,10 +15,10 @@ export const DEFAULTS = {
   // amount of milliseconds before a process
   // is killed vs disconnected (child.kill())
   defaultTerminationTime: 1000,
-  defaultErrorCode: WorkerErrorCode.CODE_FATAL_ERROR,
+  defaultErrorCode: WorkerErrorCode.CODE_FATAL_ERROR as const,
 
   error: {
-    code: WorkerErrorCode.CODE_FATAL_ERROR,
+    code: WorkerErrorCode.CODE_FATAL_ERROR as const,
     name: 'WorkerError',
     stack: undefined,
     hint: 'check logs/signals for more info',

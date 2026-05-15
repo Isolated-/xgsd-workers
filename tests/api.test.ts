@@ -12,6 +12,7 @@
 import {describe, expect, test} from 'vitest'
 import {createTransport, version, WorkerErrorCode} from '../src/index.js'
 import {join} from 'path'
+import {WorkerException} from '../src/types/error.types.js'
 
 const wrapper = () => {
   const logs: any[] = []
@@ -40,6 +41,41 @@ const createTestTransport = (fixture: string, config?: any) => {
 }
 
 describe('Workers Public API (v1.1)', () => {
+  test('errors are meaningful and easier to use', async () => {
+    const {transport, stream} = createTestTransport('unknown.js')
+
+    try {
+      const res = await transport()
+      expect(res).toBeUndefined()
+    } catch (error: any) {
+      expect(error.isWorkerError).toBeTruthy()
+    }
+
+    const signal = stream
+      .finish()
+      .filter((s) => s.type === 'error')
+      .pop()
+
+    expect(signal).toBeDefined()
+
+    expect(signal.meta.name).toBe('WorkerError')
+    expect(signal.meta.isWorkerError).toBeTruthy()
+  })
+
+  test('WorkerException instances are created from error objects', async () => {
+    const {transport} = createTestTransport('unknown.js')
+
+    try {
+      const res = await transport()
+      expect(res).toBeUndefined()
+    } catch (error: any) {
+      expect(error.isWorkerError).toBeTruthy()
+
+      expect(error).toBeInstanceOf(WorkerException)
+      expect(error.isWorkerError).toBeTruthy()
+    }
+  })
+
   test('output: raw|wrapped is accepted (vs output.mode: raw|wrapped)', async () => {
     const {transport} = createTestTransport('benchmark.js', {output: 'raw'})
 
@@ -139,7 +175,7 @@ describe('Workers Public API (v1.0.0)', () => {
   })
 
   test('wraps errors thrown inside usercode', async () => {
-    const {transport, stream} = createTestTransport('errors.js')
+    const {transport} = createTestTransport('errors.js')
 
     // no rejection for most errors
     const res = await transport()
@@ -260,7 +296,8 @@ describe('Workers Public API (v1.0.0)', () => {
       const {transport, stream} = createTestTransport('invalid-code.js')
 
       try {
-        await transport()
+        const res = await transport()
+        expect(res).toBeUndefined()
       } catch (error: any) {
         const {code, message, type, stack} = error
 
@@ -284,7 +321,8 @@ describe('Workers Public API (v1.0.0)', () => {
       const {transport} = createTestTransport('bad.js')
 
       try {
-        await transport()
+        const res = await transport()
+        expect(res).toBeUndefined()
       } catch (error: any) {
         expect(error.code).toBe(WorkerErrorCode.CODE_INVALID_DEFAULT_FUNCTION)
       }

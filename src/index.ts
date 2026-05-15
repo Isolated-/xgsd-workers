@@ -12,7 +12,7 @@ import {runWorker} from './core/worker.js'
 import {compact, completeWorkerSetupFromConfig} from './util/setup.js'
 import {readFileSync} from 'fs'
 import {StreamLike} from './types/stream-like.type.js'
-import {WorkerErrorCode, WorkerError} from './types/error.types.js'
+import {WorkerErrorCode, WorkerError, WorkerException} from './types/error.types.js'
 import {Next, Middleware} from './core/compose.js'
 import {
   Signal,
@@ -468,14 +468,15 @@ export function createTransport<
     } catch (error: any) {
       record.error(error?.code ?? error?.message ?? 'unknown', 0)
 
-      throw error
+      throw WorkerException.from(error)
     }
   }
 
   return handle
 }
 
-export function isActivation<T = unknown>(input: unknown): input is Activation<T> {
+// these need to relocated
+function isActivation<T = unknown>(input: unknown): input is Activation<T> {
   if (input === null || typeof input !== 'object') {
     return false
   }

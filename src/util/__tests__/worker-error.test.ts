@@ -1,6 +1,6 @@
 import {describe, test, expect} from 'vitest'
 import {workerError} from '../format.js'
-import {WorkerErrorCode} from '../../types/error.types.js'
+import {WorkerErrorCode, WorkerException} from '../../types/error.types.js'
 import {DEFAULTS} from '../../constants.js'
 
 describe('workerError()', () => {
@@ -42,5 +42,24 @@ describe('workerError()', () => {
     // deterministic/exact order (useful for signal storage)
     // and ensuring readability in logs
     expect(Object.keys(err)).toEqual(['code', 'type', 'name', 'message', 'isWorkerError', 'stack', 'hint'])
+  })
+})
+
+describe('WorkerException', () => {
+  test('creates from WorkerErrors', () => {
+    const err = workerError('a test error')
+    const exception = WorkerException.from(err)
+
+    expect(exception.isWorkerError).toBeTruthy()
+    expect(exception.name).toBe('WorkerError')
+  })
+
+  test('creates from Errors', () => {
+    const err = new Error('a test error')
+    const exception = WorkerException.from(err)
+
+    expect(exception.isWorkerError).toBeFalsy()
+    expect(exception.code).toBe(WorkerErrorCode.CODE_FATAL_ERROR)
+    expect(exception.name).toBe('Error')
   })
 })

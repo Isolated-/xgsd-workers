@@ -1,3 +1,5 @@
+import {DEFAULTS} from '../constants.js'
+
 /**
  * Error codes used across the worker/runtime boundary.
  *
@@ -100,4 +102,58 @@ export type WorkerError = {
   stack?: string
   type?: WorkerErrorType
   isWorkerError: boolean
+}
+
+export function isWorkerError(input: unknown): input is WorkerError {
+  if (!input || typeof input !== 'object') {
+    return false
+  }
+
+  return 'isWorkerError' in input && input.isWorkerError === true
+}
+
+export class WorkerException extends Error {
+  private static fromWorkerError(input: WorkerError) {
+    return new WorkerException(input)
+  }
+
+  private static fromError(input: Error) {
+    return new WorkerException({
+      code: WorkerErrorCode.CODE_FATAL_ERROR,
+      name: input.name ?? 'unknown',
+      message: input.message ?? 'unknown',
+      stack: input.stack,
+      hint: 'not a WorkerError, check logs/stack',
+      isWorkerError: false,
+    })
+  }
+
+  static from(input: unknown) {
+    if (isWorkerError(input)) {
+      return WorkerException.fromWorkerError(input)
+    }
+
+    if (input instanceof Error) {
+      return WorkerException.fromError(input)
+    }
+
+    throw new Error('unsupported error type')
+  }
+
+  public code: string
+  public name: string
+  public type: 'user' | 'system' | 'unknown'
+  public hint?: string
+  public isWorkerError: boolean
+
+  private constructor(error: WorkerError) {
+    super(error.message)
+
+    this.code = error.code!
+    this.name = error.name!
+    this.type = error.type!
+    this.stack = error.stack
+    this.hint = error.hint
+    this.isWorkerError = error.isWorkerError
+  }
 }
