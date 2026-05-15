@@ -1,3 +1,5 @@
+import {DEFAULTS} from '../constants.js'
+import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 import {SchemaVersion, TransportResult, WorkerResult} from '../types/result.types.js'
 import {Signal} from '../types/signal.types.js'
 
@@ -55,4 +57,29 @@ export function normaliseSignal<T extends Record<string, unknown>>(signal: Signa
     meta: signal.meta,
     timestamp: signal.timestamp,
   }
+}
+
+type WorkerErrorOpts = {
+  code?: WorkerErrorCode
+  name?: string
+  type?: 'user' | 'system' | 'unknown'
+  hint?: string
+  stack?: string
+}
+
+export function normaliseWorkerError(err: WorkerError): WorkerError {
+  return {
+    code: err.code,
+    type: err.type,
+    name: err.name,
+    message: err.message,
+    isWorkerError: err.isWorkerError,
+    stack: err.stack,
+    hint: err.hint,
+  }
+}
+
+export function workerError(message: string, opts: WorkerErrorOpts = {}) {
+  const errorData = {...DEFAULTS.error, ...opts, message, isWorkerError: true}
+  return normaliseWorkerError(errorData)
 }

@@ -94,7 +94,10 @@ export enum WorkerErrorCode {
 export type WorkerErrorType = 'user' | 'system' | 'unknown'
 export type WorkerError = {
   code?: WorkerErrorCode
-  message?: string
+  name?: string
+  message: string
+  hint?: string
   stack?: string
   type?: WorkerErrorType
+  isWorkerError: boolean
 }
