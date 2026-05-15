@@ -437,7 +437,7 @@ export function createTransport<
     })
 
     const consoleMode = typeof opts.console === 'string' ? opts.console : opts.console?.mode
-
+    const start = performance.now()
     try {
       const result = (await runWorker({
         ctx: activationCtx,
@@ -466,7 +466,11 @@ export function createTransport<
 
       return formatWrappedTransportResult<Version>(formatSubject)
     } catch (error: any) {
-      record.error(error?.code ?? error?.message ?? 'unknown', 0)
+      record.error(error?.code ?? error?.message ?? 'unknown', performance.now() - start)
+
+      if (schemaVersion === 'v1') {
+        throw error
+      }
 
       throw WorkerException.from(error)
     }
