@@ -69,10 +69,9 @@ describe('Workers Public API (v1.1)', () => {
       const res = await transport()
       expect(res).toBeUndefined()
     } catch (error: any) {
-      expect(error.isWorkerError).toBeTruthy()
-
       expect(error).toBeInstanceOf(WorkerException)
       expect(error.isWorkerError).toBeTruthy()
+      expect(error.name).toBe('WorkerException')
     }
   })
 

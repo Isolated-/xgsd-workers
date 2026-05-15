@@ -51,7 +51,7 @@ describe('WorkerException', () => {
     const exception = WorkerException.from(err)
 
     expect(exception.isWorkerError).toBeTruthy()
-    expect(exception.name).toBe('WorkerError')
+    expect(exception.name).toBe('WorkerException')
   })
 
   test('creates from Errors', () => {
@@ -60,6 +60,6 @@ describe('WorkerException', () => {
 
     expect(exception.isWorkerError).toBeFalsy()
     expect(exception.code).toBe(WorkerErrorCode.CODE_FATAL_ERROR)
-    expect(exception.name).toBe('Error')
+    expect(exception.name).toBe('WorkerException')
   })
 })

@@ -141,7 +141,6 @@ export class WorkerException extends Error {
   }
 
   public code: string
-  public name: string
   public type: 'user' | 'system' | 'unknown'
   public hint?: string
   public isWorkerError: boolean
@@ -150,8 +149,8 @@ export class WorkerException extends Error {
     super(error.message)
 
     this.code = error.code!
-    this.name = error.name!
     this.type = error.type!
+    this.name = 'WorkerException'
     this.stack = error.stack
     this.hint = error.hint
     this.isWorkerError = error.isWorkerError

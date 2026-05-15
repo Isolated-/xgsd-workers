@@ -2,7 +2,7 @@ import {fork} from 'child_process'
 import {Context, WorkerGuardOpts} from './types.js'
 import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 import {createSignalLogger, SignalContext} from './signal.js'
-import {formatWorkerResult} from '../util/format.js'
+import {formatWorkerResult, workerError} from '../util/format.js'
 import {fileURLToPath} from 'url'
 import {DEFAULTS} from '../constants.js'
 import {numberFixed2} from '../process/workers.runtime.js'
@@ -215,11 +215,11 @@ function collector(signal: SignalContext, type: 'stdout' | 'stderr') {
 async function termination(killed: boolean, cleanup: any, reject: any) {
   if (killed) return
 
-  const error = {
-    code: WorkerErrorCode.CODE_WORKER_ABORTED,
-    message: `worker has been aborted`,
-    type: 'user',
-  }
+  const error = workerError(`worker was aborted`, {
+    code: WorkerErrorCode.CODE_WORKER_GUARD,
+    type: 'system',
+    hint: 'this usually means CTRL+C was used',
+  })
 
   await cleanup('SIGKILL')
   reject(error)

@@ -22,6 +22,6 @@ export const DEFAULTS = {
     name: 'WorkerError',
     stack: undefined,
     hint: 'check logs/signals for more info',
-    type: 'unknown' as const,
+    type: 'system' as const,
   },
 }
