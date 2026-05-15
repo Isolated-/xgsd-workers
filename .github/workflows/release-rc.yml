@@ -3,7 +3,8 @@ name: CI & Release (Preview)
 on:
   push:
     tags:
-      - 'v*.*.*-rc*' # Trigger on all beta tags
+      - 'v*.*.*-rc*' # Trigger on all rc tags
+      - 'v*.*.*-preview*' # + "preview" tags
 
 jobs:
   # Run tests (single Node version is enough for beta)
