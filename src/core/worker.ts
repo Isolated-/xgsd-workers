@@ -221,7 +221,7 @@ function collector(logger: any, type: 'stdout' | 'stderr', pid: number) {
             pid,
             type: 'user',
             message: json.message ?? 'custom user signal',
-            meta: json,
+            meta: json.meta ?? json,
           })
         }
       } catch {
