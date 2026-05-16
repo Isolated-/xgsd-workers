@@ -46,6 +46,9 @@ export function createSignalLogger(signal: SignalContext) {
     })
   }
   return {
+    signal: (message: any) => {
+      signal.emit(message)
+    },
     log: (message: string, meta?: LogSignal) => {
       wrapper('log', message, meta)
     },

@@ -208,17 +208,7 @@ function collector(logger: any, type: 'stdout' | 'stderr') {
         // core signals = __sys or structured logs
         // sent by usercode/child process
         if (isCoreSignal(json)) {
-          if (json.type === 'warn') {
-            logger.warn(json.message, json.meta)
-            return
-          }
-
-          if (json.type === 'error') {
-            logger.error(json.message, json.meta)
-            return
-          }
-
-          logger.system(json.message, json.meta)
+          logger.signal(json)
         } else {
           // unstructured json logs are wrapped as generic
           // allowing users to define their own structure
