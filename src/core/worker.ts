@@ -1,116 +1,146 @@
 import {fork} from 'child_process'
-import {Context, WorkerGuardOpts, WorkerResult} from './types.js'
+import {Context} from './types.js'
 import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
-import {createSignalLogger, SignalContext} from './signal.js'
-import {formatWorkerResult} from '../util/format.js'
+import {SignalContext} from './signal.js'
+import {formatWorkerResult, workerError} from '../util/format.js'
 import {fileURLToPath} from 'url'
 import {DEFAULTS} from '../constants.js'
 import {numberFixed2} from '../process/workers.runtime.js'
+import {startWorkerGuard, workerGuardThrottler} from './worker-guard.js'
+import {WorkerResult} from '../types/result.types.js'
 
 type ChildMessage<T = unknown> =
   | {type: 'ALIVE'; error: undefined; result: undefined}
   | {type: 'DONE'; result: WorkerResult<T>; error: undefined | null; memoryUsage: number}
   | {type: 'ERROR'; result: undefined | null; error: WorkerError}
 
-function isCoreSignal(object: Record<string, any>) {
-  return object.__sys || (object.type && object.message && object.meta)
-}
+export async function runWorker<T = any>(opts: {
+  ctx: Context<T>
+  logger: any
+  signal?: SignalContext
+  mode?: 'default' | 'debug'
+}) {
+  const start = performance.now()
+  const {ctx, logger, mode} = opts
 
-function collector(signal: SignalContext, type: 'stdout' | 'stderr') {
-  return (chunk: any) => {
-    const lines = chunk.toString().split('\n').filter(Boolean)
+  // this was added in v1.1
 
-    for (const line of lines) {
-      try {
-        const json = JSON.parse(line)
-
-        // core signals = __sys or structured logs
-        // sent by usercode/child process
-        if (isCoreSignal(json)) {
-          signal.emit(json)
-        } else {
-          // unstructured json logs are wrapped as generic
-          // allowing users to define their own structure
-          signal.emit({
-            type: 'generic',
-            message: json.message ?? 'generic',
-            meta: json,
-          })
-        }
-      } catch {
-        // fallback
-        signal.emit({
-          type: type === 'stderr' ? 'error' : 'log',
-          message: line,
-        })
-      }
-    }
+  let forkOpts = {
+    stdio: mode === 'debug' ? 'inherit' : ['inherit', 'pipe', 'pipe', 'ipc'],
+    serialization: 'json',
+    env: {
+      ...ctx.env,
+      XGSD_WORKERS_VERSION: ctx.meta.version,
+    },
   }
+
+  if (ctx.contractVersion) {
+    const optsv11 = {
+      timeout: ctx.meta.limits.ttl * 2,
+      cwd: ctx.meta.cwd,
+      killSignal: 'SIGTERM',
+      env: {
+        ...forkOpts.env,
+        XGSD_CWD: ctx.meta.cwd,
+      },
+    }
+
+    forkOpts = {...forkOpts, ...optsv11}
+  }
+
+  // TODO: remove hardcoded worker path
+  const path = resolveProcessPath()
+  const child = fork(path, forkOpts as any)
+
+  const pid = child.pid!
+  if (!processes.has(pid)) {
+    processes.set(pid, {
+      pid,
+      act: ctx.activationId!,
+      start: Date.now(),
+      status: 'running',
+    })
+  }
+
+  child.once('exit', () => {
+    processes.delete(pid)
+  })
+
+  child.send({type: 'START', ctx})
+
+  return containerManager<T>({child, logger, ctx, start})
 }
 
-function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Context<T>; start: number}) {
-  const {child, signal, ctx, start} = opts
+function containerManager<T>(opts: {child: any; logger: any; ctx: Context<T>; start: number}) {
+  const {child, logger, ctx, start} = opts
+  let completed = false
+  let killed = false
 
   return new Promise((resolve, reject) => {
-    const logger = createSignalLogger(signal)
+    // collect stdout/err logs -> Signals
+    child.stdout?.on('data', collector(logger, 'stdout', child.pid))
+    child.stderr?.on('data', collector(logger, 'stderr', child.pid))
 
-    let completed = false
-    let killed = false
+    let timeout: NodeJS.Timeout
+    let cleaningUp = false
 
-    const cleanup = (sig: NodeJS.Signals = 'SIGINT') => {
-      if (sig === 'SIGKILL' && !killed) {
-        logger.system(`force killing container (pid: ${child.pid ?? 'unknown'})`)
+    // move this
+    const cleanup = async (sig: NodeJS.Signals = 'SIGINT') => {
+      if (cleaningUp) return
+      cleaningUp = true
 
-        killed = true
-        child.kill(sig)
+      const meta = processes.get(child.pid)
+
+      if (meta) {
+        meta.status = 'stopping'
+      }
+
+      process.off('SIGINT', sigintHandler)
+
+      child.once('exit', () => {
+        clearTimeout(timeout)
+      })
+
+      if (sig === 'SIGKILL') {
+        logger.warn(`force killing container (${child.pid})`)
+
+        child.kill('SIGKILL')
         return
       }
 
-      if (child.connected) {
-        logger.system(`disconnecting container (pid: ${child.pid ?? 'unknown'})`)
+      //logger.system(`gracefully stopping container (${child.pid})`)
 
-        child.removeAllListeners('message')
+      child.kill('SIGTERM')
 
-        child.disconnect(sig)
-      }
+      timeout = setTimeout(() => {
+        if (child.exitCode === null) {
+          logger.warn(`escalating to SIGKILL (${child.pid})`)
+
+          child.disconnect()
+          child.kill('SIGKILL')
+        }
+      }, DEFAULTS.defaultTerminationTime)
     }
 
-    // collect stdout/err logs -> Signals
-    child.stdout?.on('data', collector(signal, 'stdout'))
-    child.stderr?.on('data', collector(signal, 'stderr'))
+    const sigintHandler = handleSignalFactory({logger, cleanup, reject, killed})
 
-    const throttler = (mem: {rss: number; heap: number}) => {
-      const {memory} = ctx.meta.limits
-      const limitMB = typeof memory === 'number' ? memory : memory.limitMB
-      if (typeof memory === 'number' || memory.strategy === 'heap') {
-        const heapMB = mem.heap / 1024 / 1024
-        return heapMB > limitMB
-      }
-
-      if (memory.strategy !== 'rss') {
-        logger.warn(`"${memory.strategy}" is not a valid strategy, "rss" will be used.`)
-      }
-
-      const rssMB = mem.rss / 1024 / 1024
-      return rssMB > limitMB
+    if (!started) {
+      process.on('exit', registerProcessGuard(logger, ctx.contextId))
+      process.on('SIGINT', sigintHandler)
+      started = true
     }
 
+    const throttler = workerGuardThrottler(ctx, logger)
     const startGuard = () => {
-      const opts = {child, limits: ctx.meta.limits, signal, throttler}
-      logger.system('worker guard started')
+      const opts = {child, limits: ctx.meta.limits, logger, throttler}
+      //logger.system('worker guard started')
 
-      startWorkerGuard(opts, (reason) => {
+      startWorkerGuard(opts, async (reason) => {
         if (completed) return
 
         const duration = Number((performance.now() - start).toFixed(2))
-        logger.activation('worker guard suspended activation', {
-          version: ctx.meta.version,
-          ok: false,
-          error: reason.message,
-          duration,
-        })
 
-        cleanup()
+        await cleanup()
 
         if (ctx.meta.limits.onError === 'throw') {
           return reject({...reason, stack: null})
@@ -122,94 +152,6 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
 
     startGuard()
 
-    function fatal(msg: ChildMessage) {
-      logger.activation('fatal', {
-        version: ctx.meta.version,
-        ok: false,
-        error: msg.error?.code ?? msg.error?.message ?? 'unknown',
-        duration: performance.now() - start,
-      })
-
-      // centralise error logging here
-      // vs in child process
-      logger.error(`${msg.error?.message ?? 'unknown'} (${msg.error?.code ?? 'unknown'})`, msg.error ?? undefined)
-
-      cleanup()
-      reject(msg.error)
-    }
-
-    let signalCount = 0
-
-    // this should become part of WorkerGuard
-    // eventually
-    function termination() {
-      if (killed) return
-
-      const error = {
-        code: WorkerErrorCode.CODE_WORKER_ABORTED,
-        message: `worker has been aborted`,
-        type: 'user',
-      }
-
-      cleanup('SIGKILL')
-      reject(error)
-    }
-
-    let timeout: NodeJS.Timeout
-    function handleSignal(sig: NodeJS.Signals) {
-      signalCount++
-
-      if (signalCount === 1) {
-        logger.warn(
-          `${sig} received, process will shutdown in ${numberFixed2(DEFAULTS.defaultTerminationTime / 1000)}s. Use CTRL+C to force shutdown.`,
-        )
-
-        cleanup('SIGTERM')
-
-        timeout = setTimeout(termination, DEFAULTS.defaultTerminationTime)
-        return
-      }
-
-      if (signalCount === 2) {
-        logger.warn(`final ${sig} received, forcing process to exit`)
-
-        clearTimeout(timeout)
-        termination()
-      }
-    }
-
-    function finish(msg: ChildMessage) {
-      const {result, memoryUsage} = msg as any
-      const duration = performance.now() - start
-
-      // TODO: this should always be the final signal sent
-      // move it outside of this function eventually
-      logger.activation(`activation completed in ${duration.toFixed(2)} ms`, {
-        version: ctx.meta.version,
-        ok: true,
-        error: null,
-        duration,
-      })
-
-      logger.metric({
-        version: ctx.meta.version,
-        duration,
-        memoryUsage,
-        ok: true,
-      })
-
-      result.duration = Number(duration.toFixed(2))
-
-      cleanup()
-
-      // normal errors are wrapped inside the process
-      if (ctx.meta.output.mode === 'raw') {
-        resolve(result?.result)
-      } else {
-        resolve(result)
-      }
-    }
-
     child.on('message', (msg: ChildMessage) => {
       if (msg.type === 'ALIVE') return
       if (msg.type === 'DONE') return finish(msg)
@@ -218,8 +160,117 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
       logger.warn(`unknown message type ${(msg as any).type}`)
     })
 
-    process.on('SIGINT', handleSignal)
+    async function fatal(msg: ChildMessage) {
+      // centralise error logging here
+      // vs in child process
+      logger.error(`${msg.error?.message ?? 'unknown'} (${msg.error?.code ?? 'unknown'})`, msg.error ?? undefined)
+
+      await cleanup()
+      reject(msg.error)
+    }
+
+    async function finish(msg: ChildMessage) {
+      const {result} = msg as any
+      const duration = performance.now() - start
+
+      result.duration = Number(duration.toFixed(2))
+
+      await cleanup()
+
+      // normal errors are wrapped inside the process
+      resolve(result)
+    }
   })
+}
+
+function isCoreSignal(object: unknown) {
+  if (!object || typeof object !== 'object') {
+    return false
+  }
+
+  return '__sys' in object
+}
+
+function collector(logger: any, type: 'stdout' | 'stderr', pid: number) {
+  return (chunk: any) => {
+    const lines = chunk.toString().split('\n').filter(Boolean)
+
+    for (const line of lines) {
+      try {
+        const json = JSON.parse(line)
+
+        // core signals = __sys or structured logs
+        // sent by usercode/child process
+        if (isCoreSignal(json)) {
+          logger.signal(json)
+        } else {
+          // unstructured json logs are wrapped as generic
+          // allowing users to define their own structure
+          logger.signal({
+            pid,
+            type: 'user',
+            message: json.message ?? 'custom user signal',
+            meta: json.meta ?? json,
+          })
+        }
+      } catch {
+        // fallback
+        logger.signal({
+          pid,
+          type: type === 'stderr' ? 'error' : 'user',
+          message: line,
+        })
+      }
+    }
+  }
+}
+
+// this should become part of WorkerGuard
+// eventually
+async function termination(killed: boolean, cleanup: any, reject: any) {
+  if (killed) return
+
+  const error = workerError(`worker was aborted`, {
+    code: WorkerErrorCode.CODE_WORKER_GUARD,
+    type: 'system',
+    hint: 'this usually means CTRL+C was used',
+  })
+
+  await cleanup('SIGKILL')
+  reject(error)
+}
+
+let started = false
+
+function handleSignalFactory(opts: {logger: any; killed: boolean; cleanup: any; reject: any}) {
+  let signalCount = 0
+  const {logger, killed, cleanup, reject} = opts
+
+  let timeout: NodeJS.Timeout
+  return async function handleSignal(sig: NodeJS.Signals) {
+    signalCount++
+
+    if (signalCount === 1) {
+      logger.warn(
+        `${sig} received, process will shutdown in ${numberFixed2(DEFAULTS.defaultTerminationTime / 1000)}s. Use CTRL+C to force shutdown.`,
+      )
+
+      await cleanup('SIGTERM')
+
+      timeout = setTimeout(async () => {
+        await termination(killed, cleanup, reject)
+      }, DEFAULTS.defaultTerminationTime)
+
+      return
+    }
+
+    if (signalCount === 2) {
+      logger.warn(`final ${sig} received, forcing process to exit`)
+
+      clearTimeout(timeout)
+      await termination(killed, cleanup, reject)
+    }
+  }
 }
 
 function resolveProcessPath() {
@@ -233,94 +284,26 @@ function resolveProcessPath() {
   return path
 }
 
-export async function runWorker<T = any>(opts: {ctx: Context<T>; signal: SignalContext}) {
-  const start = performance.now()
-  const {ctx, signal} = opts
-
-  signal.emit({type: 'system', message: 'starting container'})
-
-  // TODO: remove hardcoded worker path
-  const path = resolveProcessPath()
-  const child = fork(path, {
-    stdio: ['inherit', 'pipe', 'pipe', 'ipc'],
-    // hard limit results in V8 errors
-    // so use carefully
-    //execArgv: [`--max-old-space-size=512`],
-    env: {
-      ...ctx.env, // <- this may not be needed as dotenv can be used inside the worker
-      XGSD_WORKERS_VERSION: ctx.meta.version,
-    },
-  })
-
-  child.send({type: 'START', ctx})
-
-  return containerManager<T>({child, signal, ctx, start})
+type Process = {
+  pid: number
+  start: number
+  act: string
+  status: 'running' | 'stopping'
 }
 
-type Throttler = (memory: {rss: number; heap: number}) => boolean
+const processes = new Map<number, Process>()
 
-type GuardOpts = {
-  signal: SignalContext
-  child: any
-  limits: WorkerGuardOpts
-  throttler: Throttler
-}
+function registerProcessGuard(logger: any, id: string) {
+  return function handle() {
+    if (processes.size === 0) return
 
-function startWorkerGuard(opts: GuardOpts, suspended?: (reason: WorkerError) => void) {
-  const {child, signal} = opts
-  const {ttl, memory} = opts.limits
+    logger.warn(`there are currently ${processes.size} processes in an unknown state.`)
 
-  let ttlTimer: NodeJS.Timeout | null = null
-  let killed = false
-
-  const kill = (reason: string) => {
-    if (killed) return
-    killed = true
-
-    if (ttlTimer) clearTimeout(ttlTimer)
-
-    child.kill('SIGKILL')
-
-    const err: WorkerError = {
-      code: WorkerErrorCode.CODE_WORKER_GUARD,
-      message: reason,
-      type: 'system',
+    for (const [pid, process] of processes) {
+      logger.warn(
+        `process ${pid} is ${process.status} (act: ${process.act}) - check your process manager to ensure it's not hanging`,
+        {pid, status: process.status, tag: 'worker_guard'},
+      )
     }
-
-    signal.emit({
-      type: 'error',
-      message: `process killed ${reason}`,
-      meta: {...err, guard: true},
-    })
-
-    suspended?.(err)
   }
-
-  // TTL watchdog
-  ttlTimer = setTimeout(() => {
-    kill(`ttl exceeded limit (limit: ${ttl.toFixed(2)}ms)`)
-  }, ttl)
-
-  child.on('message', (msg: any) => {
-    if (msg.type !== 'ALIVE') {
-      return
-    }
-
-    // (v0.1.0) this isn't set in stone
-    // may be worth using RSS
-    // (v1-beta) let caller decide how to throttle
-    const limit = typeof memory === 'number' ? memory : memory.limitMB
-    const shouldThrottle = opts.throttler({
-      rss: msg.memory?.rss,
-      heap: msg.memory?.heapUsed,
-    })
-
-    if (shouldThrottle) {
-      kill(`memory limit exceeded (limit: ${limit.toFixed(2)}MB)`)
-    }
-  })
-
-  child.on('exit', () => {
-    if (ttlTimer) clearTimeout(ttlTimer)
-  })
 }

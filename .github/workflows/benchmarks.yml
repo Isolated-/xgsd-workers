@@ -20,6 +20,8 @@ jobs:
       fail-fast: false
       matrix:
         concurrency: [4, 8, 16]
+        activations: [10000]
+        items: [1, 256]
 
     steps:
       - name: Checkout
@@ -49,8 +51,9 @@ jobs:
       - name: Run benchmark
         env:
           CONCURRENCY: ${{ matrix.concurrency }}
-          ITEMS: 256
-          ACTIVATIONS: 10000
+          ITEMS: ${{ matrix.items }}
+          ACTIVATIONS: ${{ matrix.activations }}
+
         run: node benchmarks/concurrency.js
 
       - name: Upload benchmark results

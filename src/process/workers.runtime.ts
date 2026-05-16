@@ -6,30 +6,32 @@ import {Middleware, Next} from '../core/compose.js'
 import {Context, ErrorBehaviour, RunFn} from '../core/types.js'
 import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 import {pathExists} from '../util/fs.js'
+import {workerError} from '../util/format.js'
+import {ContractVersion} from '../types/result.types.js'
 
-export async function importUserModule(entry: string) {
+async function checkEntryFile(entry: string) {
   if (!(await pathExists(entry))) {
-    const err: WorkerError = {
+    throw workerError(`entry file "${entry}" not found`, {
       code: WorkerErrorCode.CODE_INVALID_ENTRY_FILE,
-      message: `entry file "${entry}" not found`,
       type: 'user',
-    }
+    })
+  }
+}
 
-    throw err
+export async function importUserModule(entry: string, contractVersion?: ContractVersion) {
+  if (contractVersion === 'v1') {
+    await checkEntryFile(entry)
   }
 
   try {
     return await import(entry)
   } catch (error: any) {
-    // normalise error
-    const err: WorkerError = {
+    const message = `"${entry}" cannot be loaded. Error: ${error?.message ?? 'unknown - check logs'}`
+    throw workerError(message, {
       code: WorkerErrorCode.CODE_INVALID_ENTRY_FILE,
-      message: `${entry} cannot be loaded because there's an error in your code. Error: "${error?.message ?? 'unknown - check logs'}"`,
       type: 'user',
-      stack: error.stack,
-    }
-
-    throw err
+      stack: error?.stack,
+    })
   }
 }
 
@@ -83,13 +85,10 @@ export function validateUserModule(mod: any): boolean {
     return true
   }
 
-  const error: WorkerError = {
+  throw workerError(`"default" must be a function (received: ${typeof mod.default})`, {
     code: WorkerErrorCode.CODE_INVALID_DEFAULT_FUNCTION,
-    message: `default must be a function (received: ${typeof mod.default})`,
     type: 'user',
-  }
-
-  throw error
+  })
 }
 
 export function validateUserMiddleware(middleware: Middleware[]): boolean {
@@ -99,13 +98,10 @@ export function validateUserMiddleware(middleware: Middleware[]): boolean {
     return true
   }
 
-  const error: WorkerError = {
+  throw workerError(`Some or all of your middleware functions are invalid. Indexes: ${nonFns.join(',')}.`, {
     code: WorkerErrorCode.CODE_INVALID_MIDDLEWARE_FUNCTION,
-    message: `Some or all of your middleware functions are invalid, indexes: ${nonFns.join(',')}.`,
     type: 'user',
-  }
-
-  throw error
+  })
 }
 
 export function memorySnapshot() {
@@ -127,22 +123,31 @@ export const isCommonJS = typeof module !== 'undefined' && typeof module.exports
 
 export function completePreChecks(version: string, stdout: any, stderr: any) {
   const before = memorySnapshot()
+  const {version: vers, platform, arch, pid} = process
 
-  stdout.log(`container started (pid: ${process.pid})`, {tag: 'info'})
-  stdout.log(`memory usage at start ${before.rss} MB (heap: ${before.heapUsed}MB/${before.heapTotal}MB)`, {
+  stdout.log(`container started (pid: ${pid})`)
+  /*stdout.log(`container memory usage at start ${before.rss} MB (heap: ${before.heapUsed}MB/${before.heapTotal}MB)`, {
     workers: version,
     heapUsed: before.heapUsed,
     heapTotal: before.heapTotal,
     rss: before.rss,
     tag: 'debug',
-  })
+  })*/
 
-  stdout.log(`@xgsd/workers version ${version}`, {tag: 'debug', workers: version})
-  stdout.log(`Node.js version ${process.version} (${process.platform} ${process.arch})`, {
+  /* stdout.log(`@xgsd/workers v${version}`, {tag: 'debug', workers: version})
+  stdout.log(`Node.js ${process.version} (${process.platform} ${process.arch})`, {
     tag: 'debug',
     node: process.version,
     arch: process.arch,
     platform: process.platform,
+  })*/
+
+  const message = `@xgsd/workers v${version} - node ${vers} (${platform} ${arch})`
+  stdout.log(message, {
+    workers: version,
+    node: vers,
+    platform,
+    arch,
   })
 
   if (version === 'unknown') {
@@ -164,7 +169,7 @@ type CheckSerialisationOpts<T> = {
 export function completeSerialisationCheck<T>(opts: CheckSerialisationOpts<T>): T | undefined | null {
   const {data, onError, stderr, property} = opts
   try {
-    if (data === undefined) {
+    if (data === undefined || data === null) {
       return null
     }
 
@@ -172,11 +177,11 @@ export function completeSerialisationCheck<T>(opts: CheckSerialisationOpts<T>): 
 
     return data
   } catch (err: any) {
-    const error: WorkerError = {
+    const error = workerError(`"ctx.${property}" is not serialisable`, {
       code: WorkerErrorCode.CODE_INVALID_DATA,
-      message: `"ctx.${property}" is not serialisable, check middleware/worker return values.`,
       stack: err?.stack,
-    }
+      hint: `check middleware/worker return values + ensure no circular returns.`,
+    })
 
     if (onError === 'drop') {
       stderr.warn(`"ctx.${property}" has been set to null as "ctx.${property}" is not serialisable`, error)

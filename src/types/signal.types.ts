@@ -7,6 +7,7 @@ export type SignalType = 'log' | 'error' | 'activation' | 'system' | 'generic' |
 
 export type Signal<T extends Record<string, unknown>> = {
   ctx: string
+  act: string
   pid?: number
   type: SignalType
   message: string

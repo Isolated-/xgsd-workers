@@ -1,4 +1,5 @@
 import {WorkerOutputMode} from './core/types.js'
+import {WorkerErrorCode} from './types/error.types.js'
 
 export const DEFAULTS = {
   limits: {
@@ -14,4 +15,16 @@ export const DEFAULTS = {
   // amount of milliseconds before a process
   // is killed vs disconnected (child.kill())
   defaultTerminationTime: 1000,
+  defaultErrorCode: WorkerErrorCode.CODE_FATAL_ERROR as const,
+  defaultContractVersion: 'v1' as const,
+
+  error: {
+    code: WorkerErrorCode.CODE_FATAL_ERROR as const,
+    name: 'WorkerError',
+    stack: undefined,
+    hint: 'check logs/signals for more info',
+    type: 'system' as const,
+  },
 }
+
+export const SUPPORTED_VERSIONS = ['v1', 'v1.1']

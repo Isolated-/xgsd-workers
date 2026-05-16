@@ -1,5 +1,5 @@
 import {compose, Middleware, UserMiddlewareFn} from '../core/compose.js'
-import {Context} from '../core/types.js'
+import {Context, ExitCode} from '../core/types.js'
 import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 import {createLogger} from '../core/shared.js'
 import {
@@ -12,6 +12,7 @@ import {
   validateUserMiddleware,
   validateUserModule,
 } from './workers.runtime.js'
+import {workerError} from '../util/format.js'
 
 setup()
 
@@ -23,6 +24,10 @@ type RuntimeOpts<T> = {
   stderr: any
   pulse?: boolean
 }
+
+process.on('disconnect', () => {
+  process.exit(ExitCode.CODE_DETACHED_PROCESS)
+})
 
 async function runtime<T>(opts: RuntimeOpts<T>) {
   const heartbeat = opts.pulse ? startHeartbeat() : undefined
@@ -37,7 +42,7 @@ async function runtime<T>(opts: RuntimeOpts<T>) {
     // load user mod
     let mod
     try {
-      mod = await importUserModule(ctx.meta.entry)
+      mod = await importUserModule(ctx.meta.entry, ctx.contractVersion)
     } catch (error: any) {
       return err(error)
     }
@@ -53,7 +58,7 @@ async function runtime<T>(opts: RuntimeOpts<T>) {
     let middleware: Middleware[] = []
     if (mod.middleware && typeof mod.middleware === 'function') {
       const middlewareFn = mod.middleware as UserMiddlewareFn
-      const start = performance.now()
+      //const start = performance.now()
       middleware = (await middlewareFn()) ?? []
 
       try {
@@ -62,11 +67,11 @@ async function runtime<T>(opts: RuntimeOpts<T>) {
         return err(error)
       }
 
-      const duration = performance.now() - start
-      stdout.log(`loaded ${middleware.length} middleware functions in ${numberFixed2(duration)} ms`, {
+      //const duration = performance.now() - start
+      /*stdout.log(`loaded ${middleware.length} middleware functions in ${numberFixed2(duration)} ms`, {
         duration,
         tag: 'info',
-      })
+      })*/
     }
 
     // if middleware() (register function) is exported but invalid just warn the user
@@ -75,56 +80,48 @@ async function runtime<T>(opts: RuntimeOpts<T>) {
       stderr.warn(`middleware() is type ${typeof mod.middleware} - expected "function". It will not be used.`)
     }
 
-    const serialisationCheck: Middleware = async (ctx, next) => {
-      async function wrapper(property: 'result' | 'error') {
-        try {
-          ctx[property] = completeSerialisationCheck({
-            data: ctx[property],
-            onError: ctx.meta.output.onError,
-            stderr,
-            property,
-          })
-        } catch (error) {
-          ctx.error = error
-        }
-      }
-
-      await wrapper('error')
-      await wrapper('result')
-    }
-
-    const bootstrap = compose([...middleware, usercodeMiddlewareWrapper(mod.default), serialisationCheck])
+    const bootstrap = compose([...middleware, usercodeMiddlewareWrapper(mod.default)])
     const {limits} = ctx.meta
     const {ttl, memory} = limits
 
-    stdout.log(`running worker + ${middleware.length} middleware (ttl: ${ttl} ms, memory: ${memory} MB)`, {
+    /*stdout.log(`running worker + ${middleware.length} middleware (ttl: ${ttl} ms, memory: ${memory} MB)`, {
       tag: 'info',
       version,
-    })
+    })*/
 
     const start = performance.now()
     const result = await bootstrap(ctx)
     const duration = performance.now() - start
 
-    stdout.log(`worker finished in ${duration.toFixed(2)} ms`, {duration, tag: 'debug'})
-
-    // note: this could resolve vs reject
-    // that covers passthrough use cases where the user
-    // may not be responsible for the circular/unserialisable data
-    if (result.error?.code === WorkerErrorCode.CODE_INVALID_DATA) {
-      return err(result.error)
-    }
+    /*stdout.log(`worker finished in ${duration.toFixed(2)} ms`, {duration, tag: 'debug'})*/
 
     const after = memorySnapshot()
-    stdout.log(`memory usage at end ${after.rss} MB (heap: ${after.heapUsed}MB/${after.heapTotal}MB)`, {
+    /*stdout.log(`container memory usage at end ${after.rss} MB (heap: ${after.heapUsed}MB/${after.heapTotal}MB)`, {
       workers: version,
       heapUsed: after.heapUsed,
       heapTotal: after.heapTotal,
       rss: after.rss,
       tag: 'debug',
-    })
+    })*/
 
-    return done(result)
+    //stdout.log(`ensuring data can be safely serialised`)
+
+    try {
+      const {onError} = ctx.meta.output
+      let res = {
+        ...result,
+        result: completeSerialisationCheck({
+          data: result.result,
+          onError,
+          property: 'result',
+          stderr,
+        }),
+      }
+
+      return done(res)
+    } catch (error) {
+      return err(error)
+    }
   } finally {
     clearInterval(heartbeat)
   }
@@ -184,12 +181,9 @@ function rejectionHandler(stderr: any) {
   const handler = (errorOrRejection: any) => {
     const error = errorOrRejection instanceof Error ? errorOrRejection : null
 
-    const wrapped: WorkerError = {
-      code: WorkerErrorCode.CODE_FATAL_ERROR,
-      message: error?.message ?? 'uncaught exception',
-      type: 'unknown',
+    const wrapped = workerError(error?.message ?? 'uncaught exception', {
       stack: error?.stack,
-    }
+    })
 
     stderr.error(wrapped.message!, wrapped)
     const done = dispatch('ERROR', {error: wrapped})
@@ -197,7 +191,7 @@ function rejectionHandler(stderr: any) {
     // NOTE: this failsafe was added
     // to protect against dangling processes
     if (!done) {
-      process.exit(10)
+      process.exit(ExitCode.CODE_DETACHED_PROCESS)
     }
   }
 
@@ -210,12 +204,12 @@ function rejectionHandler(stderr: any) {
  */
 
 function handleSignalFactory(opts: {stdout: any; stderr: any}) {
-  const {stderr} = opts
+  const {stdout} = opts
 
   return async function (sig: NodeJS.Signals) {
     if (sig !== 'SIGTERM') return
 
-    stderr.warn(`container received ${sig} - shutting down`)
+    stdout.log(`container shut down (pid: ${process.pid})`)
 
     // handle clean up
     process.exit(0)

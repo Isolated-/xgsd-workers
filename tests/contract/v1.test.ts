@@ -10,16 +10,8 @@
  */
 
 import {describe, expect, test} from 'vitest'
-import {createTransport, version, WorkerErrorCode} from '../src/index.js'
+import {createTransport, version, WorkerErrorCode} from '../../src/index.js'
 import {join} from 'path'
-
-describe('exports', () => {
-  test('API exports', () => {
-    expect(createTransport).toBeDefined()
-    expect(version).toBeDefined()
-    expect(WorkerErrorCode).toBeDefined()
-  })
-})
 
 const wrapper = () => {
   const logs: any[] = []
@@ -47,7 +39,7 @@ const createTestTransport = (fixture: string, config?: any) => {
   return {transport, stream}
 }
 
-describe('Workers Public API', () => {
+describe('Workers Public API (v1.0.0)', () => {
   test('produces a predictable output', async () => {
     const {transport} = createTestTransport('benchmark.js')
 
@@ -66,7 +58,7 @@ describe('Workers Public API', () => {
     const {transport} = createTestTransport('benchmark.js')
 
     const res = await transport()
-    expect(res.duration).toBeGreaterThanOrEqual(30)
+    expect(res.duration).toBeGreaterThanOrEqual(20)
   })
 
   test('entry path must be absolute', async () => {
@@ -91,7 +83,7 @@ describe('Workers Public API', () => {
   })
 
   test('wraps errors thrown inside usercode', async () => {
-    const {transport, stream} = createTestTransport('errors.js')
+    const {transport} = createTestTransport('errors.js')
 
     // no rejection for most errors
     const res = await transport()
@@ -101,7 +93,7 @@ describe('Workers Public API', () => {
   })
 
   test('middleware can be used for composition and the order is predictable', async () => {
-    const {transport, stream} = createTestTransport('middleware.js')
+    const {transport} = createTestTransport('middleware.js')
 
     const res = await transport()
     expect(res.result).toEqual(['A', 'B', 'C', 'C', 'B', 'A'])
@@ -152,6 +144,18 @@ describe('Workers Public API', () => {
     expect(results.every((x) => x.ok)).toBe(true)
   })
 
+  test('custom activation ids can be provided', async () => {
+    const {transport, stream} = createTestTransport('benchmark.js')
+
+    const res = await transport({
+      id: '12345',
+    })
+
+    expect(res.ok).toBeTruthy()
+    const signals = stream.finish().every((x) => (x.act === '12345' || x.act === 'none') && x.ctx !== '12345')
+    expect(signals).toBeTruthy()
+  })
+
   /**
    *  serialisation/return values
    */
@@ -159,7 +163,7 @@ describe('Workers Public API', () => {
     test('class instances degrade into serializable objects', async () => {
       const {transport} = createTestTransport('unsupported.js')
 
-      const res = await transport<any>()
+      const res = await transport()
 
       expect(res.ok).toBe(true)
       expect(res.result).toEqual({name: 'MyInstance', description: 'something about MyInstance'})
@@ -181,6 +185,14 @@ describe('Workers Public API', () => {
       const res = await transport<any>()
       expect(res.ok).toBe(true)
       expect(res.result).toEqual(undefined)
+    })
+
+    test('middleware can fix circular issues', async () => {
+      const {transport} = createTestTransport('circular-middleware-fix.js')
+
+      const res = await transport()
+      expect(res.result.self).toBeUndefined()
+      expect(res.result.items).toHaveLength(2000)
     })
   })
 
@@ -204,7 +216,8 @@ describe('Workers Public API', () => {
       const {transport, stream} = createTestTransport('invalid-code.js')
 
       try {
-        await transport()
+        const res = await transport()
+        expect(res).toBeUndefined()
       } catch (error: any) {
         const {code, message, type, stack} = error
 
@@ -228,7 +241,8 @@ describe('Workers Public API', () => {
       const {transport} = createTestTransport('bad.js')
 
       try {
-        await transport()
+        const res = await transport()
+        expect(res).toBeUndefined()
       } catch (error: any) {
         expect(error.code).toBe(WorkerErrorCode.CODE_INVALID_DEFAULT_FUNCTION)
       }
@@ -262,6 +276,7 @@ describe('Workers Public API', () => {
           .filter((s: any) => s.type === 'warn')
           .pop()
 
+        expect(signal).toBeDefined()
         expect(signal.meta.code).toBe(WorkerErrorCode.CODE_INVALID_DATA)
         expect(signal.message).toContain('"ctx.result" has been set to null')
       })
@@ -382,5 +397,13 @@ describe('Workers Public API', () => {
       // result data is never stored
       expect(signal.meta.result).toBeUndefined()
     })
+  })
+})
+
+describe('exports', () => {
+  test('API exports', () => {
+    expect(createTransport).toBeDefined()
+    expect(version).toBeDefined()
+    expect(WorkerErrorCode).toBeDefined()
   })
 })

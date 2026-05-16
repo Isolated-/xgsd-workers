@@ -1,28 +1,11 @@
-import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
+import {WorkerErrorCode} from '../types/error.types.js'
+import {ContractVersion, TransportResult} from '../types/result.types.js'
 
 export type RunFn<T, R = T> = (data: T) => Promise<T>
 
-/**
- *  WORKER RESULT TYPES
- */
-
-export type WorkerResult<T> =
-  | {
-      version: 'v1'
-      ok: true
-      code?: number
-      result: T
-      error: null
-      duration: number
-    }
-  | {
-      version: 'v1'
-      ok: false
-      code?: number
-      result: null
-      error: WorkerError
-      duration: number
-    }
+export enum ExitCode {
+  CODE_DETACHED_PROCESS = 10,
+}
 
 /**
  *  WORKER CONFIG TYPES
@@ -84,6 +67,9 @@ export type ContextMetadata = {
 
 export type Context<T = unknown, E = any> = {
   id: string
+  contextId: string
+  activationId: string | null
+  contractVersion: ContractVersion
   data: T | null
   env: Record<string, any> | null
   // define this
@@ -107,10 +93,8 @@ export type Activation<T = unknown> = {
 
 //export type ActivationHandler = <O = unknown, I = unknown>(activation?: Activation<I>) => Promise<WorkerResult<O>>
 export type ActivationHandler<Mode extends WorkerOutputMode = 'wrapped'> = <T = any>(
-  activation?: Activation<T>,
+  activation?: T | Activation<T>,
 ) => Promise<TransportResult<Mode, T>>
-
-export type TransportResult<Mode extends WorkerOutputMode, T = unknown> = Mode extends 'raw' ? T : WorkerResult<T>
 
 /**
  *  SIGNAL TYPES
@@ -148,4 +132,5 @@ export type ActivationSignal = GenericSignal & {
   error?: string | null
   version: string
   duration: number
+  activationTime: number
 }
