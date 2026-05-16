@@ -24,30 +24,33 @@ export async function runWorker<T = any>(opts: {
   const {ctx, logger, mode} = opts
 
   // this was added in v1.1
-  const hardKillTTL = ctx.meta.limits.ttl * 2
 
-  const optsv11 = {
-    cwd: ctx.meta.cwd,
-    timeout: ctx.meta.limits.ttl * 2,
-    killSignal: 'SIGTERM',
+  let forkOpts = {
+    stdio: mode === 'debug' ? 'inherit' : ['inherit', 'pipe', 'pipe', 'ipc'],
+    serialization: 'json',
+    env: {
+      ...ctx.env,
+      XGSD_WORKERS_VERSION: ctx.meta.version,
+    },
+  }
+
+  if (ctx.contractVersion) {
+    const optsv11 = {
+      timeout: ctx.meta.limits.ttl * 2,
+      cwd: ctx.meta.cwd,
+      killSignal: 'SIGTERM',
+      env: {
+        ...forkOpts.env,
+        XGSD_CWD: ctx.meta.cwd,
+      },
+    }
+
+    forkOpts = {...forkOpts, ...optsv11}
   }
 
   // TODO: remove hardcoded worker path
   const path = resolveProcessPath()
-  const child = fork(path, {
-    stdio: mode === 'debug' ? 'inherit' : ['inherit', 'pipe', 'pipe', 'ipc'],
-    serialization: 'json',
-    // hard limit results in V8 errors
-    // so use carefully
-    //execArgv: [`--max-old-space-size=512`],
-    killSignal: 'SIGTERM',
-    timeout: hardKillTTL,
-    cwd: ctx.meta.cwd,
-    env: {
-      ...ctx.env, // <- this may not be needed as dotenv can be used inside the worker
-      XGSD_WORKERS_VERSION: ctx.meta.version,
-    },
-  })
+  const child = fork(path, forkOpts as any)
 
   const pid = child.pid!
   if (!processes.has(pid)) {
