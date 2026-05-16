@@ -9,7 +9,13 @@ import {
   ActivationHandler,
 } from './core/types.js'
 import {runWorker} from './core/worker.js'
-import {activationRecord, completeWorkerSetup, createContextForActivation, createStream} from './util/setup.js'
+import {
+  activationRecord,
+  assertEntryFile,
+  completeWorkerSetup,
+  createContextForActivation,
+  createStream,
+} from './util/setup.js'
 import {readFileSync} from 'fs'
 import {StreamLike} from './types/stream-like.type.js'
 import {WorkerErrorCode, WorkerError, WorkerException} from './types/error.types.js'
@@ -25,8 +31,6 @@ import {
 } from './types/signal.types.js'
 import {formatWrappedTransportResult, isSupportedVersion} from './util/format.js'
 import {ContractVersion, TransportResult, WorkerResult} from './types/result.types.js'
-import {pathExistsSync} from './util/fs.js'
-import {DEFAULTS} from './constants.js'
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 export const version = packageJson.version
@@ -410,18 +414,6 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
  *
  * @since v1
  */
-
-export function assertEntryFile(entryFile: string, contractVersion?: ContractVersion): boolean {
-  // in v1 entry file is asserted inside the process
-  // this is very in-efficient but provides perfect isolation
-  if (contractVersion === 'v1') {
-    return true
-  }
-
-  // v1.1 introduces a check *before* run starts
-  return pathExistsSync(entryFile)
-}
-
 export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>(
   opts: CreateTransportOpts<Mode>,
 ): ActivationHandler<Mode> {

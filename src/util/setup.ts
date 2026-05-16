@@ -7,6 +7,7 @@ import {CreateTransportOpts, version} from '../index.js'
 import {StreamLike} from '../types/stream-like.type.js'
 import path from 'path'
 import {ContractVersion} from '../types/result.types.js'
+import {pathExistsSync} from './fs.js'
 
 export const compactId = (prefix: string = 'ctx') => `${prefix}_${randomBytes(6).toString('hex')}`
 
@@ -150,4 +151,15 @@ export const activationRecord = (opts: ActivationRecordOpts) => {
       })
     },
   }
+}
+
+export function assertEntryFile(entryFile: string, contractVersion?: ContractVersion): boolean {
+  // in v1 entry file is asserted inside the process
+  // this is very in-efficient but provides perfect isolation
+  if (contractVersion === 'v1') {
+    return true
+  }
+
+  // v1.1 introduces a check *before* run starts
+  return pathExistsSync(entryFile)
 }
