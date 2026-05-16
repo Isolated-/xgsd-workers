@@ -8,7 +8,6 @@ import {DEFAULTS} from '../constants.js'
 import {numberFixed2} from '../process/workers.runtime.js'
 import {startWorkerGuard, workerGuardThrottler} from './worker-guard.js'
 import {WorkerResult} from '../types/result.types.js'
-import {stderr} from 'process'
 
 type ChildMessage<T = unknown> =
   | {type: 'ALIVE'; error: undefined; result: undefined}
@@ -173,16 +172,6 @@ function containerManager<T>(opts: {child: any; logger: any; ctx: Context<T>; st
     async function finish(msg: ChildMessage) {
       const {result} = msg as any
       const duration = performance.now() - start
-
-      /*logger.metric(
-        {
-          version: ctx.meta.version,
-          duration,
-          activationTime: duration,
-          ok: true,
-        },
-        `duration=${duration.toFixed(2)}ms (metric)`,
-      )*/
 
       result.duration = Number(duration.toFixed(2))
 
