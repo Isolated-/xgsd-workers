@@ -91,6 +91,8 @@ export enum WorkerErrorCode {
    * - Structured clone incompatibility
    */
   CODE_INVALID_DATA = 'CODE_INVALID_DATA',
+
+  CODE_UNSUPPORTED_VERSION = 'CODE_UNSUPPORTED_VERSION',
 }
 
 export type WorkerErrorType = 'user' | 'system' | 'unknown'

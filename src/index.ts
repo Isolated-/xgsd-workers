@@ -23,7 +23,7 @@ import {
   SystemSignal,
   SignalType,
 } from './types/signal.types.js'
-import {formatWrappedTransportResult} from './util/format.js'
+import {formatWrappedTransportResult, isSupportedVersion} from './util/format.js'
 import {ContractVersion, TransportResult, WorkerResult} from './types/result.types.js'
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
@@ -408,6 +408,7 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
  *
  * @since v1
  */
+
 export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>(
   opts: CreateTransportOpts<Mode>,
 ): ActivationHandler<Mode> {
@@ -415,6 +416,13 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
 
   const {ctx, logger, setActivationId} = completeWorkerSetup(opts, stream)
   const {contractVersion} = ctx
+
+  if (contractVersion && !isSupportedVersion(contractVersion)) {
+    throw new WorkerException({
+      code: WorkerErrorCode.CODE_UNSUPPORTED_VERSION,
+      message: `${contractVersion} is not a supported version`,
+    })
+  }
 
   logger.system(`new context started (ctx: ${ctx.contextId})`)
 

@@ -1,4 +1,4 @@
-import {DEFAULTS} from '../constants.js'
+import {DEFAULTS, SUPPORTED_VERSIONS} from '../constants.js'
 import {Activation} from '../core/types.js'
 import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 import {ContractVersion, TransportResult, WorkerResult} from '../types/result.types.js'
@@ -99,4 +99,18 @@ export function isActivation<T = unknown>(input: unknown): input is Activation<T
   }
 
   return 'data' in input || 'env' in input || 'id' in input || 'cwd' in input
+}
+
+export function isSupportedVersion(version: unknown) {
+  if (typeof version !== 'string') {
+    return false
+  }
+
+  let contractVersion = version.trim().toLowerCase()
+
+  if (!contractVersion.startsWith('v')) {
+    contractVersion = 'v' + contractVersion
+  }
+
+  return SUPPORTED_VERSIONS.includes(contractVersion)
 }

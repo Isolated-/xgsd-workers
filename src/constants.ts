@@ -26,3 +26,5 @@ export const DEFAULTS = {
     type: 'system' as const,
   },
 }
+
+export const SUPPORTED_VERSIONS = ['v1', 'v1.1']

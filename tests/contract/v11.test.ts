@@ -1,10 +1,31 @@
 import {join} from 'path'
 import {describe, test, expect} from 'vitest'
 import {createTransport} from '../../src/index.js'
-import {WorkerException} from '../../src/types/error.types.js'
+import {WorkerErrorCode, WorkerException} from '../../src/types/error.types.js'
 import {createTestTransport} from './util.js'
 
 describe('Workers Public API (v1.1)', () => {
+  test('contract version must be valid and supported', () => {
+    try {
+      createTestTransport('does-nothing.js', {contractVersion: 'v2'})
+
+      expect(true).toBeFalsy()
+    } catch (error: any) {
+      expect(error).toBeInstanceOf(WorkerException)
+      expect(error.code).toBe(WorkerErrorCode.CODE_UNSUPPORTED_VERSION)
+    }
+  })
+
+  test("contract version doesn't need a prefix", () => {
+    try {
+      const {transport} = createTestTransport('does-nothing.js', {contractVersion: '1'})
+
+      expect(transport).toBeDefined()
+    } catch (error: any) {
+      expect(error).toBeUndefined()
+    }
+  })
+
   test('no excessive/non-meaningful/debug signals by default', async () => {
     const {transport, stream} = createTestTransport('does-nothing.js', {contractVersion: 'v1.1'})
 
