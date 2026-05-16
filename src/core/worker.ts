@@ -194,8 +194,12 @@ function containerManager<T>(opts: {child: any; logger: any; ctx: Context<T>; st
   })
 }
 
-function isCoreSignal(object: Record<string, any>) {
-  return object.__sys || (object.type && object.message && object.meta)
+function isCoreSignal(object: unknown) {
+  if (!object || typeof object !== 'object') {
+    return false
+  }
+
+  return '__sys' in object
 }
 
 function collector(logger: any, type: 'stdout' | 'stderr', pid: number) {
