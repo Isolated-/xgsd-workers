@@ -8,6 +8,7 @@ import {DEFAULTS} from '../constants.js'
 import {numberFixed2} from '../process/workers.runtime.js'
 import {startWorkerGuard, workerGuardThrottler} from './worker-guard.js'
 import {WorkerResult} from '../types/result.types.js'
+import {stderr} from 'process'
 
 type ChildMessage<T = unknown> =
   | {type: 'ALIVE'; error: undefined; result: undefined}
@@ -78,8 +79,8 @@ function containerManager<T>(opts: {child: any; logger: any; ctx: Context<T>; st
 
   return new Promise((resolve, reject) => {
     // collect stdout/err logs -> Signals
-    child.stdout?.on('data', collector(logger, 'stdout'))
-    child.stderr?.on('data', collector(logger, 'stderr'))
+    child.stdout?.on('data', collector(logger, 'stdout', child.pid))
+    child.stderr?.on('data', collector(logger, 'stderr', child.pid))
 
     let timeout: NodeJS.Timeout
     let cleaningUp = false
@@ -197,7 +198,7 @@ function isCoreSignal(object: Record<string, any>) {
   return object.__sys || (object.type && object.message && object.meta)
 }
 
-function collector(logger: any, type: 'stdout' | 'stderr') {
+function collector(logger: any, type: 'stdout' | 'stderr', pid: number) {
   return (chunk: any) => {
     const lines = chunk.toString().split('\n').filter(Boolean)
 
@@ -212,7 +213,8 @@ function collector(logger: any, type: 'stdout' | 'stderr') {
         } else {
           // unstructured json logs are wrapped as generic
           // allowing users to define their own structure
-          logger.generic(json.message, {
+          logger.signal({
+            pid,
             type: 'user',
             message: json.message ?? 'custom user signal',
             meta: json,
@@ -220,9 +222,11 @@ function collector(logger: any, type: 'stdout' | 'stderr') {
         }
       } catch {
         // fallback
-
-        if (type === 'stderr') logger.error(line)
-        if (type === 'stdout') logger.generic(line)
+        logger.signal({
+          pid,
+          type: type === 'stderr' ? 'error' : 'user',
+          message: line,
+        })
       }
     }
   }
