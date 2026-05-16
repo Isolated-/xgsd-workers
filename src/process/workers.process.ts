@@ -58,7 +58,7 @@ async function runtime<T>(opts: RuntimeOpts<T>) {
     let middleware: Middleware[] = []
     if (mod.middleware && typeof mod.middleware === 'function') {
       const middlewareFn = mod.middleware as UserMiddlewareFn
-      const start = performance.now()
+      //const start = performance.now()
       middleware = (await middlewareFn()) ?? []
 
       try {
@@ -67,11 +67,11 @@ async function runtime<T>(opts: RuntimeOpts<T>) {
         return err(error)
       }
 
-      const duration = performance.now() - start
-      stdout.log(`loaded ${middleware.length} middleware functions in ${numberFixed2(duration)} ms`, {
+      //const duration = performance.now() - start
+      /*stdout.log(`loaded ${middleware.length} middleware functions in ${numberFixed2(duration)} ms`, {
         duration,
         tag: 'info',
-      })
+      })*/
     }
 
     // if middleware() (register function) is exported but invalid just warn the user
@@ -84,27 +84,27 @@ async function runtime<T>(opts: RuntimeOpts<T>) {
     const {limits} = ctx.meta
     const {ttl, memory} = limits
 
-    stdout.log(`running worker + ${middleware.length} middleware (ttl: ${ttl} ms, memory: ${memory} MB)`, {
+    /*stdout.log(`running worker + ${middleware.length} middleware (ttl: ${ttl} ms, memory: ${memory} MB)`, {
       tag: 'info',
       version,
-    })
+    })*/
 
     const start = performance.now()
     const result = await bootstrap(ctx)
     const duration = performance.now() - start
 
-    stdout.log(`worker finished in ${duration.toFixed(2)} ms`, {duration, tag: 'debug'})
+    /*stdout.log(`worker finished in ${duration.toFixed(2)} ms`, {duration, tag: 'debug'})*/
 
     const after = memorySnapshot()
-    stdout.log(`container memory usage at end ${after.rss} MB (heap: ${after.heapUsed}MB/${after.heapTotal}MB)`, {
+    /*stdout.log(`container memory usage at end ${after.rss} MB (heap: ${after.heapUsed}MB/${after.heapTotal}MB)`, {
       workers: version,
       heapUsed: after.heapUsed,
       heapTotal: after.heapTotal,
       rss: after.rss,
       tag: 'debug',
-    })
+    })*/
 
-    stdout.log(`ensuring data can be safely serialised`)
+    //stdout.log(`ensuring data can be safely serialised`)
 
     try {
       const {onError} = ctx.meta.output
@@ -209,7 +209,7 @@ function handleSignalFactory(opts: {stdout: any; stderr: any}) {
   return async function (sig: NodeJS.Signals) {
     if (sig !== 'SIGTERM') return
 
-    stdout.log(`container shutting down (${process.pid})`)
+    stdout.log(`container shut down (pid: ${process.pid})`)
 
     // handle clean up
     process.exit(0)

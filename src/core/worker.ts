@@ -89,7 +89,7 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
         return
       }
 
-      logger.system(`gracefully stopping container (${child.pid})`)
+      //logger.system(`gracefully stopping container (${child.pid})`)
 
       child.kill('SIGTERM')
 
@@ -114,7 +114,7 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
     const throttler = workerGuardThrottler(ctx, logger)
     const startGuard = () => {
       const opts = {child, limits: ctx.meta.limits, signal, throttler}
-      logger.system('worker guard started')
+      //logger.system('worker guard started')
 
       startWorkerGuard(opts, async (reason) => {
         if (completed) return
@@ -154,7 +154,7 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
       const {result} = msg as any
       const duration = performance.now() - start
 
-      logger.metric(
+      /*logger.metric(
         {
           version: ctx.meta.version,
           duration,
@@ -162,7 +162,7 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
           ok: true,
         },
         `duration=${duration.toFixed(2)}ms (metric)`,
-      )
+      )*/
 
       result.duration = Number(duration.toFixed(2))
 

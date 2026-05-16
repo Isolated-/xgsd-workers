@@ -202,12 +202,20 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
    */
   entry: string
 
+  /**
+   * Refers to the API version — not the same as @xgsd/workers version
+   *
+   * Will affect what features are available to maintain backward compatibility.
+   */
   schemaVersion?: SchemaVersion
 
   /**
    * Writable stream used for runtime signals/logs.
+   *
+   * When undefined, process.stdout is used
+   * Use "none" to override this
    */
-  stream?: StreamLike
+  stream?: 'none' | StreamLike
 
   /**
    * Default activation environment variables.
@@ -402,7 +410,14 @@ export function createTransport<
   const Version extends SchemaVersion = 'v1',
 >(opts: CreateTransportOpts<Mode>): ActivationHandler<Mode> {
   const {limits, entry, output} = opts
-  const stream = opts.stream ?? process.stdout
+  let stream = (opts.stream ?? process.stdout) as StreamLike
+
+  if (opts.stream === 'none') {
+    stream = {
+      write: (chunk: string) => {},
+    }
+  }
+
   const schemaVersion = opts.schemaVersion ?? 'v1'
   const config = {
     entry,

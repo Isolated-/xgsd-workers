@@ -41,6 +41,26 @@ const createTestTransport = (fixture: string, config?: any) => {
 }
 
 describe('Workers Public API (v1.1)', () => {
+  test('no excessive/non-meaningful/debug signals by default', async () => {
+    const {transport, stream} = createTestTransport('does-nothing.js', {schemaVersion: 'v1.1'})
+
+    await transport()
+
+    const signals = stream.finish()
+    expect(signals.length).toBeLessThanOrEqual(5)
+  })
+
+  test('stream: none is accepted', async () => {
+    const transport = createTransport({
+      entry: join(process.cwd(), 'fixtures', 'combined', 'does-nothing.js'),
+      schemaVersion: 'v1.1',
+      stream: 'none',
+    })
+
+    const res = await transport()
+    expect(res.ok).toBeTruthy()
+  })
+
   test('errors are meaningful and easier to use', async () => {
     const {transport, stream} = createTestTransport('unknown.js', {schemaVersion: 'v1.1'})
 

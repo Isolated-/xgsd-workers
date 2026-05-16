@@ -10,6 +10,18 @@ import {
 } from '../types/signal.types.js'
 import {Context} from './types.js'
 
+// instead of treating signals like logs
+// signals should become more like events
+// key events:
+// context:start
+// activation:start
+// activation:end
+// container:start
+// container:end
+// to support user debugging add:
+// context:debug
+// activation:debug
+
 type EmitOpts<T extends Record<string, unknown>> =
   | {pid?: number; type: 'generic'; message: string; meta?: T}
   | {pid?: number; type: 'activation'; message: string; meta: ActivationSignal}
@@ -18,8 +30,6 @@ type EmitOpts<T extends Record<string, unknown>> =
   | {pid?: number; type: 'system'; message: string; meta?: SystemSignal}
   | {pid?: number; type: 'error'; message: string; meta?: ErrorSignal}
   | {pid?: number; type: 'metric'; message: string; meta?: MetricSignal}
-
-export const DEFAULT_SIGNAL_FILE_NAME = 'signals.jsonl' as const
 
 // keep this off public API
 export type SignalContext = {
