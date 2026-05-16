@@ -101,7 +101,7 @@ export type WorkerError = {
   hint?: string
   stack?: string
   type?: WorkerErrorType
-  isWorkerError: boolean
+  isWorkerError?: boolean
 }
 
 export function isWorkerError(input: unknown): input is WorkerError {
@@ -145,7 +145,7 @@ export class WorkerException extends Error {
   public hint?: string
   public isWorkerError: boolean
 
-  private constructor(error: WorkerError) {
+  constructor(error: WorkerError) {
     super(error.message)
 
     this.code = error.code!
@@ -153,6 +153,6 @@ export class WorkerException extends Error {
     this.name = 'WorkerException'
     this.stack = error.stack
     this.hint = error.hint
-    this.isWorkerError = error.isWorkerError
+    this.isWorkerError = isWorkerError(error)
   }
 }

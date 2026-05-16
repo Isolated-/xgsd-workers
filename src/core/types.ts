@@ -1,5 +1,5 @@
 import {WorkerErrorCode} from '../types/error.types.js'
-import {TransportResult} from '../types/result.types.js'
+import {ContractVersion, TransportResult} from '../types/result.types.js'
 
 export type RunFn<T, R = T> = (data: T) => Promise<T>
 
@@ -69,6 +69,7 @@ export type Context<T = unknown, E = any> = {
   id: string
   contextId: string
   activationId: string | null
+  contractVersion: ContractVersion
   data: T | null
   env: Record<string, any> | null
   // define this

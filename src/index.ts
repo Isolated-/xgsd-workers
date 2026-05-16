@@ -9,7 +9,7 @@ import {
   ActivationHandler,
 } from './core/types.js'
 import {runWorker} from './core/worker.js'
-import {compact, completeWorkerSetupFromConfig} from './util/setup.js'
+import {compact, completeWorkerSetup} from './util/setup.js'
 import {readFileSync} from 'fs'
 import {StreamLike} from './types/stream-like.type.js'
 import {WorkerErrorCode, WorkerError, WorkerException} from './types/error.types.js'
@@ -26,7 +26,7 @@ import {
 import {createHash, randomBytes, randomUUID} from 'crypto'
 import {createSignalContext, createSignalLogger} from './core/signal.js'
 import {formatWrappedTransportResult} from './util/format.js'
-import {ApiVersion, TransportResult, WorkerResult} from './types/result.types.js'
+import {ContractVersion, TransportResult, WorkerResult} from './types/result.types.js'
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 export const version = packageJson.version
@@ -207,7 +207,7 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
    *
    * Will affect what features are available to maintain backward compatibility.
    */
-  apiVersion?: ApiVersion
+  contractVersion?: ContractVersion
 
   /**
    * Writable stream used for runtime signals/logs.
@@ -245,6 +245,7 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
     [key: string]: unknown
   }
 
+  // TODO: remove this
   console?:
     | 'debug'
     | {
@@ -408,42 +409,19 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
 export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>(
   opts: CreateTransportOpts<Mode>,
 ): ActivationHandler<Mode> {
-  const {limits, entry, output} = opts
-  let stream = (opts.stream ?? process.stdout) as StreamLike
+  const stream = createStream(opts.stream)
 
-  if (opts.stream === 'none') {
-    stream = {
-      write: (chunk: string) => {},
-    }
-  }
+  const {ctx, logger, setActivationId} = completeWorkerSetup(opts, stream)
+  const {contractVersion} = ctx
 
-  const schemaVersion = opts.apiVersion ?? 'v1'
-  const config = {
-    entry,
-    limits,
-    output,
-    apiVersion: schemaVersion,
-  } as CreateTransportOpts
-
-  const {ctx, signal} = completeWorkerSetupFromConfig({stream, config})
-
-  let logger = createSignalLogger(signal)
-  logger.system(`new context started (ctx: ${ctx.id})`)
+  logger.system(`new context started (ctx: ${ctx.contextId})`)
 
   const handle: ActivationHandler<Mode> = async (activation) => {
-    const id = compact('act')
+    const activationCtx = createContextForActivation(ctx, activation, logger)
 
-    const normalised = normaliseActivation(activation)
-
-    const activationCtx = {
-      ...ctx,
-      ...normalised,
-      activationId: normalised?.id ?? id,
-    }
+    setActivationId(activationCtx.activationId!)
 
     logger.system(`activation started (act: ${activationCtx.activationId}, ctx: ${ctx.id})`)
-
-    signal.setId(activationCtx.activationId)
 
     const record = activationRecord({
       logger,
@@ -455,7 +433,7 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
     try {
       const result = (await runWorker({
         ctx: activationCtx,
-        signal,
+        logger,
         mode: consoleMode,
       })) as any
 
@@ -474,15 +452,15 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
         duration: result.duration,
       }
 
-      if (schemaVersion === 'v1.1') {
-        formatSubject = {...formatSubject, version: 'v1.1', activationId: activationCtx.activationId}
+      if (contractVersion === 'v1.1') {
+        formatSubject = {...formatSubject, version: 'v1.1', activationId: activationCtx.activationId!}
       }
 
       return formatWrappedTransportResult(formatSubject)
     } catch (error: any) {
       record.error(error?.code ?? error?.message ?? 'unknown', performance.now() - start)
 
-      if (schemaVersion === 'v1') {
+      if (contractVersion === 'v1') {
         throw error
       }
 
@@ -494,6 +472,50 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
 }
 
 // these need to relocated
+function createStream(stream?: 'none' | StreamLike) {
+  if (!stream) {
+    return process.stdout
+  }
+
+  const noop = {
+    write: () => {},
+  }
+
+  return stream === 'none' ? noop : stream
+}
+
+function createActivationId(opts: {contractVersion: ContractVersion; id?: string; logger: any}): string {
+  const {contractVersion, id, logger} = opts
+  if (contractVersion === 'v1') {
+    return id ?? compact('act')
+  }
+
+  const actId = compact('act')
+  if (contractVersion === 'v1.1' && id) {
+    // produce warning
+    logger.warn(`providing an id at activation is unsupported by v1.1`, {tag: 'depreciation'})
+    return actId
+  }
+
+  return actId
+}
+
+function createContextForActivation<T>(ctx: Context<T>, activation: T | Activation<any>, logger: any): Context<T> {
+  const normalised = normaliseActivation(activation)
+  normalised.id = createActivationId({contractVersion: 'v1', id: normalised.id, logger: {}})
+
+  return {
+    ...ctx,
+    data: normalised.data ?? ctx.data,
+    env: normalised.env ?? ctx.env,
+    activationId: normalised.id,
+    meta: {
+      ...ctx.meta,
+      cwd: normalised.cwd ?? ctx.meta.cwd,
+    },
+  }
+}
+
 function isActivation<T = unknown>(input: unknown): input is Activation<T> {
   if (input === null || typeof input !== 'object') {
     return false

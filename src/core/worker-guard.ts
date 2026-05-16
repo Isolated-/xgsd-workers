@@ -5,7 +5,8 @@ import {Context, WorkerGuardOpts} from './types.js'
 type Throttler = (memory: {rss: number; heap: number}) => boolean
 
 type GuardOpts = {
-  signal: SignalContext
+  signal?: SignalContext
+  logger: any
   child: any
   limits: WorkerGuardOpts
   throttler: Throttler
@@ -32,7 +33,7 @@ export function workerGuardThrottler(ctx: Context<any>, logger: any) {
 }
 
 export function startWorkerGuard(opts: GuardOpts, suspended?: (reason: WorkerError) => void) {
-  const {child, signal} = opts
+  const {child, logger} = opts
   const {ttl, memory} = opts.limits
 
   let ttlTimer: NodeJS.Timeout | null = null
@@ -52,11 +53,7 @@ export function startWorkerGuard(opts: GuardOpts, suspended?: (reason: WorkerErr
       type: 'system',
     }
 
-    signal.emit({
-      type: 'error',
-      message: `process killed ${reason}`,
-      meta: {...err, guard: true},
-    })
+    logger.error(`process killed ${reason}`, {...err, guard: true})
 
     suspended?.(err)
   }

@@ -16,6 +16,7 @@ export const DEFAULTS = {
   // is killed vs disconnected (child.kill())
   defaultTerminationTime: 1000,
   defaultErrorCode: WorkerErrorCode.CODE_FATAL_ERROR as const,
+  defaultContractVersion: 'v1' as const,
 
   error: {
     code: WorkerErrorCode.CODE_FATAL_ERROR as const,

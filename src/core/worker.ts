@@ -1,7 +1,7 @@
 import {fork} from 'child_process'
-import {Context, WorkerGuardOpts} from './types.js'
+import {Context} from './types.js'
 import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
-import {createSignalLogger, SignalContext} from './signal.js'
+import {SignalContext} from './signal.js'
 import {formatWorkerResult, workerError} from '../util/format.js'
 import {fileURLToPath} from 'url'
 import {DEFAULTS} from '../constants.js'
@@ -14,9 +14,23 @@ type ChildMessage<T = unknown> =
   | {type: 'DONE'; result: WorkerResult<T>; error: undefined | null; memoryUsage: number}
   | {type: 'ERROR'; result: undefined | null; error: WorkerError}
 
-export async function runWorker<T = any>(opts: {ctx: Context<T>; signal: SignalContext; mode?: 'default' | 'debug'}) {
+export async function runWorker<T = any>(opts: {
+  ctx: Context<T>
+  logger: any
+  signal?: SignalContext
+  mode?: 'default' | 'debug'
+}) {
   const start = performance.now()
-  const {ctx, signal, mode} = opts
+  const {ctx, logger, mode} = opts
+
+  // this was added in v1.1
+  const hardKillTTL = ctx.meta.limits.ttl * 2
+
+  const optsv11 = {
+    cwd: ctx.meta.cwd,
+    timeout: ctx.meta.limits.ttl * 2,
+    killSignal: 'SIGTERM',
+  }
 
   // TODO: remove hardcoded worker path
   const path = resolveProcessPath()
@@ -26,6 +40,9 @@ export async function runWorker<T = any>(opts: {ctx: Context<T>; signal: SignalC
     // hard limit results in V8 errors
     // so use carefully
     //execArgv: [`--max-old-space-size=512`],
+    killSignal: 'SIGTERM',
+    timeout: hardKillTTL,
+    cwd: ctx.meta.cwd,
     env: {
       ...ctx.env, // <- this may not be needed as dotenv can be used inside the worker
       XGSD_WORKERS_VERSION: ctx.meta.version,
@@ -36,6 +53,7 @@ export async function runWorker<T = any>(opts: {ctx: Context<T>; signal: SignalC
   if (!processes.has(pid)) {
     processes.set(pid, {
       pid,
+      act: ctx.activationId!,
       start: Date.now(),
       status: 'running',
     })
@@ -47,20 +65,18 @@ export async function runWorker<T = any>(opts: {ctx: Context<T>; signal: SignalC
 
   child.send({type: 'START', ctx})
 
-  return containerManager<T>({child, signal, ctx, start})
+  return containerManager<T>({child, logger, ctx, start})
 }
 
-function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Context<T>; start: number}) {
-  const {child, signal, ctx, start} = opts
+function containerManager<T>(opts: {child: any; logger: any; ctx: Context<T>; start: number}) {
+  const {child, logger, ctx, start} = opts
   let completed = false
   let killed = false
 
-  const logger = createSignalLogger(signal)
-
   return new Promise((resolve, reject) => {
     // collect stdout/err logs -> Signals
-    child.stdout?.on('data', collector(signal, 'stdout'))
-    child.stderr?.on('data', collector(signal, 'stderr'))
+    child.stdout?.on('data', collector(logger, 'stdout'))
+    child.stderr?.on('data', collector(logger, 'stderr'))
 
     let timeout: NodeJS.Timeout
     let cleaningUp = false
@@ -106,14 +122,14 @@ function containerManager<T>(opts: {child: any; signal: SignalContext; ctx: Cont
     const sigintHandler = handleSignalFactory({logger, cleanup, reject, killed})
 
     if (!started) {
-      process.on('exit', registerProcessGuard(createSignalLogger(signal), ctx.contextId, ctx.activationId!))
+      process.on('exit', registerProcessGuard(logger, ctx.contextId))
       process.on('SIGINT', sigintHandler)
       started = true
     }
 
     const throttler = workerGuardThrottler(ctx, logger)
     const startGuard = () => {
-      const opts = {child, limits: ctx.meta.limits, signal, throttler}
+      const opts = {child, limits: ctx.meta.limits, logger, throttler}
       //logger.system('worker guard started')
 
       startWorkerGuard(opts, async (reason) => {
@@ -178,7 +194,7 @@ function isCoreSignal(object: Record<string, any>) {
   return object.__sys || (object.type && object.message && object.meta)
 }
 
-function collector(signal: SignalContext, type: 'stdout' | 'stderr') {
+function collector(logger: any, type: 'stdout' | 'stderr') {
   return (chunk: any) => {
     const lines = chunk.toString().split('\n').filter(Boolean)
 
@@ -189,22 +205,31 @@ function collector(signal: SignalContext, type: 'stdout' | 'stderr') {
         // core signals = __sys or structured logs
         // sent by usercode/child process
         if (isCoreSignal(json)) {
-          signal.emit(json)
+          if (json.type === 'warn') {
+            logger.warn(json.message, json.meta)
+            return
+          }
+
+          if (json.type === 'error') {
+            logger.error(json.message, json.meta)
+            return
+          }
+
+          logger.system(json.message, json.meta)
         } else {
           // unstructured json logs are wrapped as generic
           // allowing users to define their own structure
-          signal.emit({
-            type: 'generic',
-            message: json.message ?? 'generic',
+          logger.generic(json.message, {
+            type: 'user',
+            message: json.message ?? 'custom user signal',
             meta: json,
           })
         }
       } catch {
         // fallback
-        signal.emit({
-          type: type === 'stderr' ? 'error' : 'log',
-          message: line,
-        })
+
+        if (type === 'stderr') logger.error(line)
+        if (type === 'stdout') logger.generic(line)
       }
     }
   }
@@ -272,20 +297,21 @@ function resolveProcessPath() {
 type Process = {
   pid: number
   start: number
+  act: string
   status: 'running' | 'stopping'
 }
 
 const processes = new Map<number, Process>()
 
-function registerProcessGuard(logger: any, id: string, act: string) {
-  return function handle(code: number) {
+function registerProcessGuard(logger: any, id: string) {
+  return function handle() {
     if (processes.size === 0) return
 
     logger.warn(`there are currently ${processes.size} processes in an unknown state.`)
 
     for (const [pid, process] of processes) {
       logger.warn(
-        `process ${pid} is ${process.status} (act: ${act}) - check your process manager to ensure it's not hanging`,
+        `process ${pid} is ${process.status} (act: ${process.act}) - check your process manager to ensure it's not hanging`,
         {pid, status: process.status, tag: 'worker_guard'},
       )
     }

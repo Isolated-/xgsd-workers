@@ -1,6 +1,6 @@
 import {DEFAULTS} from '../constants.js'
-import {createSignalContext} from '../core/signal.js'
-import {Context} from '../core/types.js'
+import {createSignalContext, createSignalLogger} from '../core/signal.js'
+import {Activation, Context, WorkerOutputMode, WorkerOutputOpts} from '../core/types.js'
 import {randomBytes, randomUUID} from 'crypto'
 import {normaliseSignal} from './format.js'
 import {CreateTransportOpts, version} from '../index.js'
@@ -18,45 +18,61 @@ type SetupOpts = {
 
 export const compact = (prefix: string = 'ctx') => `${prefix}_${randomBytes(6).toString('hex')}`
 
-export function completeWorkerSetupFromConfig(opts: SetupOpts) {
-  const mode = typeof opts.config?.output === 'string' ? opts.config?.output : opts.config?.output?.mode
-  const onError = typeof opts.config?.output === 'string' ? undefined : opts.config?.output?.onError
+function outputOptionStringToOpts(output?: WorkerOutputMode | WorkerOutputOpts): WorkerOutputOpts {
+  if (!output) {
+    return {
+      mode: DEFAULTS.output.mode,
+      onError: undefined,
+    }
+  }
 
-  const ctxId = compact('ctx')
-  const ctx: Context = {
-    id: ctxId,
-    contextId: ctxId,
-    activationId: opts.activationId ?? null,
-    data: opts.data,
-    env: opts.env ?? null,
+  const mode = typeof output === 'string' ? output : output.mode
+  const onError = typeof output === 'string' ? undefined : output.onError
+
+  return {mode, onError}
+}
+
+function createContextForActivation(opts?: CreateTransportOpts, activation?: Activation<any>): Context<any> {
+  const contextId = compact('ctx')
+
+  const entry = path.resolve(opts?.entry ?? DEFAULTS.entryFileRelative)
+  const cwd = path.dirname(entry)
+
+  const output = outputOptionStringToOpts(opts?.output as WorkerOutputOpts)
+  const contractVersion = opts?.contractVersion ?? DEFAULTS.defaultContractVersion
+
+  const ctx = {
+    id: contextId,
+    contextId,
+    activationId: activation?.id ?? 'none',
+    contractVersion,
+    data: activation?.data ?? null,
+    env: opts?.env ?? activation?.env ?? null,
     state: {},
     error: null,
     result: null,
     meta: {
-      cwd: '',
-      version: version,
-      entry: opts.config?.entry ?? DEFAULTS.entryFileRelative,
-      limits: {
-        ...DEFAULTS.limits,
-        ...opts.config?.limits,
-      },
-      output: {
-        mode: mode ?? DEFAULTS.output.mode,
-        onError,
-      },
+      cwd,
+      entry,
+      version,
+      limits: Object.assign({}, DEFAULTS.limits, opts?.limits),
+      output,
     },
   }
 
-  ctx.meta.entry = path.resolve(ctx.meta.entry)
-  ctx.meta.cwd = path.dirname(ctx.meta.entry)
+  return ctx
+}
 
-  const stream = opts.stream ?? process.stdout
+export function completeWorkerSetup(opts: CreateTransportOpts<any>, stream: StreamLike) {
+  const ctx = createContextForActivation(opts)
 
-  const signal = createSignalContext({
-    ctx,
-    stream,
-    mapper: normaliseSignal,
-  })
+  const signal = createSignalContext({ctx, stream})
+  const logger = createSignalLogger(signal)
 
-  return {ctx, signal}
+  function setActivationId(id: string) {
+    ctx.activationId = id
+    signal.setId(id)
+  }
+
+  return {ctx, setActivationId, logger}
 }
