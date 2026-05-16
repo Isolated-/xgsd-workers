@@ -29,8 +29,9 @@ import {
   SystemSignal,
   SignalType,
 } from './types/signal.types.js'
-import {formatWrappedTransportResult, isSupportedVersion} from './util/format.js'
+import {formatWrappedTransportResult, isSupportedVersion, workerError} from './util/format.js'
 import {ContractVersion, TransportResult, WorkerResult} from './types/result.types.js'
+import {SUPPORTED_VERSIONS} from './constants.js'
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 export const version = packageJson.version
@@ -423,19 +424,22 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
   const {contractVersion} = ctx
 
   if (!isSupportedVersion(contractVersion)) {
-    throw new WorkerException({
-      code: WorkerErrorCode.CODE_UNSUPPORTED_VERSION,
-      message: `${contractVersion} is not a supported version`,
-      isWorkerError: true,
-    })
+    throw WorkerException.from(
+      workerError(`"${contractVersion}" is not supported`, {
+        code: WorkerErrorCode.CODE_UNSUPPORTED_VERSION,
+        type: 'user',
+        hint: `supported versions: ${SUPPORTED_VERSIONS.join(',')}`,
+      }),
+    )
   }
 
   if (!assertEntryFile(ctx.meta.entry, contractVersion)) {
-    throw new WorkerException({
-      code: WorkerErrorCode.CODE_INVALID_ENTRY_FILE,
-      message: `${ctx.meta.entry} does not exist`,
-      isWorkerError: true,
-    })
+    throw WorkerException.from(
+      workerError(`"${ctx.meta.entry}" does not exist.`, {
+        type: 'user',
+        code: WorkerErrorCode.CODE_INVALID_ENTRY_FILE,
+      }),
+    )
   }
 
   if (contractVersion) logger.system(`new context started (ctx: ${ctx.contextId})`)
