@@ -25,6 +25,8 @@ import {
 } from './types/signal.types.js'
 import {formatWrappedTransportResult, isSupportedVersion} from './util/format.js'
 import {ContractVersion, TransportResult, WorkerResult} from './types/result.types.js'
+import {pathExistsSync} from './util/fs.js'
+import {DEFAULTS} from './constants.js'
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 export const version = packageJson.version
@@ -409,6 +411,17 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
  * @since v1
  */
 
+export function assertEntryFile(entryFile: string, contractVersion?: ContractVersion): boolean {
+  // in v1 entry file is asserted inside the process
+  // this is very in-efficient but provides perfect isolation
+  if (contractVersion === 'v1') {
+    return true
+  }
+
+  // v1.1 introduces a check *before* run starts
+  return pathExistsSync(entryFile)
+}
+
 export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>(
   opts: CreateTransportOpts<Mode>,
 ): ActivationHandler<Mode> {
@@ -417,14 +430,23 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
   const {ctx, logger, setActivationId} = completeWorkerSetup(opts, stream)
   const {contractVersion} = ctx
 
-  if (contractVersion && !isSupportedVersion(contractVersion)) {
+  if (!isSupportedVersion(contractVersion)) {
     throw new WorkerException({
       code: WorkerErrorCode.CODE_UNSUPPORTED_VERSION,
       message: `${contractVersion} is not a supported version`,
+      isWorkerError: true,
     })
   }
 
-  logger.system(`new context started (ctx: ${ctx.contextId})`)
+  if (!assertEntryFile(ctx.meta.entry, contractVersion)) {
+    throw new WorkerException({
+      code: WorkerErrorCode.CODE_INVALID_ENTRY_FILE,
+      message: `${ctx.meta.entry} does not exist`,
+      isWorkerError: true,
+    })
+  }
+
+  if (contractVersion) logger.system(`new context started (ctx: ${ctx.contextId})`)
 
   const handle: ActivationHandler<Mode> = async (activation) => {
     const activationCtx = createContextForActivation({ctx, activation, logger})

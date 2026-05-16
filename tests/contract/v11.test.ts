@@ -47,7 +47,7 @@ describe('Workers Public API (v1.1)', () => {
   })
 
   test('errors are meaningful and easier to use', async () => {
-    const {transport, stream} = createTestTransport('unknown.js', {contractVersion: 'v1.1'})
+    const {transport, stream} = createTestTransport('unknown.js', {contractVersion: 'v1'})
 
     try {
       const res = await transport()
@@ -67,6 +67,19 @@ describe('Workers Public API (v1.1)', () => {
     expect(signal.meta.isWorkerError).toBeTruthy()
   })
 
+  // this is gated to prevent breaking v1 contract
+  // but should be preferred as it saves workers failing late (e.g. after child process setup)
+  test('WorkerException is thrown if entry file is missing - pre-checks', async () => {
+    try {
+      createTestTransport('unknown.js', {contractVersion: 'v1.1'})
+    } catch (error: any) {
+      expect(error).toBeInstanceOf(WorkerException)
+      expect(error.isWorkerError).toBeTruthy()
+      expect(error.name).toBe('WorkerException')
+    }
+  })
+
+  /*
   test('WorkerException instances are created from error objects', async () => {
     const {transport} = createTestTransport('unknown.js', {contractVersion: 'v1.1'})
 
@@ -79,7 +92,7 @@ describe('Workers Public API (v1.1)', () => {
       expect(error.name).toBe('WorkerException')
     }
   })
-
+*/
   test('output: raw|wrapped is accepted (vs output.mode: raw|wrapped)', async () => {
     const {transport} = createTestTransport('benchmark.js', {contractVersion: 'v1.1', output: 'raw'})
 

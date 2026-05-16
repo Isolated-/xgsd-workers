@@ -18,9 +18,9 @@ function formatMB(bytes) {
 const stream = createWriteStream('signals.jsonl', {flags: 'a'})
 
 const handler = createTransport({
-  schemaVersion: 'v1.1',
+  contractVersion: 'v1.1',
   entry: join(process.cwd(), 'benchmarks', 'worker.js'),
-  stream,
+  stream: 'none',
   limits: {
     memory: 32,
   },

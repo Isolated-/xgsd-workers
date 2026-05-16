@@ -7,13 +7,20 @@ import {Context, ErrorBehaviour, RunFn} from '../core/types.js'
 import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 import {pathExists} from '../util/fs.js'
 import {workerError} from '../util/format.js'
+import {ContractVersion} from '../types/result.types.js'
 
-export async function importUserModule(entry: string) {
+async function checkEntryFile(entry: string) {
   if (!(await pathExists(entry))) {
     throw workerError(`entry file "${entry}" not found`, {
       code: WorkerErrorCode.CODE_INVALID_ENTRY_FILE,
       type: 'user',
     })
+  }
+}
+
+export async function importUserModule(entry: string, contractVersion?: ContractVersion) {
+  if (contractVersion === 'v1') {
+    await checkEntryFile(entry)
   }
 
   try {

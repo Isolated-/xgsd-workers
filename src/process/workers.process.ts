@@ -42,7 +42,7 @@ async function runtime<T>(opts: RuntimeOpts<T>) {
     // load user mod
     let mod
     try {
-      mod = await importUserModule(ctx.meta.entry)
+      mod = await importUserModule(ctx.meta.entry, ctx.contractVersion)
     } catch (error: any) {
       return err(error)
     }
