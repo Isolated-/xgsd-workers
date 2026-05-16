@@ -9,13 +9,7 @@ import {
   ActivationHandler,
 } from './core/types.js'
 import {runWorker} from './core/worker.js'
-import {
-  activationRecord,
-  compactId,
-  completeWorkerSetup,
-  createContextForActivation,
-  createStream,
-} from './util/setup.js'
+import {activationRecord, completeWorkerSetup, createContextForActivation, createStream} from './util/setup.js'
 import {readFileSync} from 'fs'
 import {StreamLike} from './types/stream-like.type.js'
 import {WorkerErrorCode, WorkerError, WorkerException} from './types/error.types.js'
@@ -29,8 +23,6 @@ import {
   SystemSignal,
   SignalType,
 } from './types/signal.types.js'
-import {createHash, randomBytes, randomUUID} from 'crypto'
-import {createSignalContext, createSignalLogger} from './core/signal.js'
 import {formatWrappedTransportResult} from './util/format.js'
 import {ContractVersion, TransportResult, WorkerResult} from './types/result.types.js'
 
@@ -57,6 +49,10 @@ export {
   WorkerErrorCode,
   WorkerResult,
   WorkerOutputMode,
+  WorkerException,
+
+  // transport
+  TransportResult,
 
   // signals
   Signal,
