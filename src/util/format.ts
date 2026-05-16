@@ -1,6 +1,6 @@
 import {DEFAULTS} from '../constants.js'
 import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
-import {ApiVersion, TransportResult, WorkerResult} from '../types/result.types.js'
+import {SchemaVersion, TransportResult, WorkerResult} from '../types/result.types.js'
 import {Signal} from '../types/signal.types.js'
 
 export function normaliseKeys(value: any): any {
