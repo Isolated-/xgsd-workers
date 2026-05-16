@@ -17,7 +17,7 @@ export type ResultMetaV11 = {
   version: 'v1.1'
 }
 
-export type SchemaVersion = 'v1' | 'v1.1'
+export type ApiVersion = 'v1' | 'v1.1'
 
 export type WorkerResult<T> =
   | (BaseResult<T> & ResultMetaV1 & ResultCore<T>)

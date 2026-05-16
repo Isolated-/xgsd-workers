@@ -26,7 +26,7 @@ import {
 import {createHash, randomBytes, randomUUID} from 'crypto'
 import {createSignalContext, createSignalLogger} from './core/signal.js'
 import {formatWrappedTransportResult} from './util/format.js'
-import {SchemaVersion, TransportResult, WorkerResult} from './types/result.types.js'
+import {ApiVersion, TransportResult, WorkerResult} from './types/result.types.js'
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 export const version = packageJson.version
@@ -207,7 +207,7 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
    *
    * Will affect what features are available to maintain backward compatibility.
    */
-  schemaVersion?: SchemaVersion
+  apiVersion?: ApiVersion
 
   /**
    * Writable stream used for runtime signals/logs.
@@ -407,7 +407,7 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
  */
 export function createTransport<
   const Mode extends WorkerOutputMode = 'wrapped',
-  const Version extends SchemaVersion = 'v1',
+  const Version extends ApiVersion = 'v1',
 >(opts: CreateTransportOpts<Mode>): ActivationHandler<Mode> {
   const {limits, entry, output} = opts
   let stream = (opts.stream ?? process.stdout) as StreamLike
@@ -418,12 +418,12 @@ export function createTransport<
     }
   }
 
-  const schemaVersion = opts.schemaVersion ?? 'v1'
+  const schemaVersion = opts.apiVersion ?? 'v1'
   const config = {
     entry,
     limits,
     output,
-    schemaVersion,
+    apiVersion: schemaVersion,
   } as CreateTransportOpts
 
   const {ctx, signal} = completeWorkerSetupFromConfig({stream, config})

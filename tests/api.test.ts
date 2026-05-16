@@ -42,7 +42,7 @@ const createTestTransport = (fixture: string, config?: any) => {
 
 describe('Workers Public API (v1.1)', () => {
   test('no excessive/non-meaningful/debug signals by default', async () => {
-    const {transport, stream} = createTestTransport('does-nothing.js', {schemaVersion: 'v1.1'})
+    const {transport, stream} = createTestTransport('does-nothing.js', {apiVersion: 'v1.1'})
 
     await transport()
 
@@ -53,7 +53,7 @@ describe('Workers Public API (v1.1)', () => {
   test('stream: none is accepted', async () => {
     const transport = createTransport({
       entry: join(process.cwd(), 'fixtures', 'combined', 'does-nothing.js'),
-      schemaVersion: 'v1.1',
+      apiVersion: 'v1.1',
       stream: 'none',
     })
 
@@ -62,7 +62,7 @@ describe('Workers Public API (v1.1)', () => {
   })
 
   test('errors are meaningful and easier to use', async () => {
-    const {transport, stream} = createTestTransport('unknown.js', {schemaVersion: 'v1.1'})
+    const {transport, stream} = createTestTransport('unknown.js', {apiVersion: 'v1.1'})
 
     try {
       const res = await transport()
@@ -83,7 +83,7 @@ describe('Workers Public API (v1.1)', () => {
   })
 
   test('WorkerException instances are created from error objects', async () => {
-    const {transport} = createTestTransport('unknown.js', {schemaVersion: 'v1.1'})
+    const {transport} = createTestTransport('unknown.js', {apiVersion: 'v1.1'})
 
     try {
       const res = await transport()
@@ -111,7 +111,7 @@ describe('Workers Public API (v1.1)', () => {
   })
 
   test('transport() accepts more than just objects', async () => {
-    const {transport} = createTestTransport('benchmark.js', {schemaVersion: 'v1.1'})
+    const {transport} = createTestTransport('benchmark.js', {apiVersion: 'v1.1'})
 
     const results = await Promise.all([transport('my string'), transport(2), transport(false)])
 
@@ -119,7 +119,7 @@ describe('Workers Public API (v1.1)', () => {
   })
 
   test('"act" is present in signals', async () => {
-    const {transport, stream} = createTestTransport('benchmark.js', {schemaVersion: 'v1.1'})
+    const {transport, stream} = createTestTransport('benchmark.js', {apiVersion: 'v1.1'})
 
     await transport()
 
@@ -128,7 +128,7 @@ describe('Workers Public API (v1.1)', () => {
   })
 
   test('"pid" is present in signals', async () => {
-    const {transport, stream} = createTestTransport('benchmark.js', {schemaVersion: 'v1.1'})
+    const {transport, stream} = createTestTransport('benchmark.js', {apiVersion: 'v1.1'})
 
     await transport()
 
@@ -139,7 +139,7 @@ describe('Workers Public API (v1.1)', () => {
   test('activationId is returned in wrapped results', async () => {
     const transport = createTransport({
       entry: join(process.cwd(), 'fixtures', 'combined', 'benchmark.js'),
-      schemaVersion: 'v1.1',
+      apiVersion: 'v1.1',
       stream: {
         write: () => {},
       },
