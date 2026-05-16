@@ -405,10 +405,9 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
  *
  * @since v1
  */
-export function createTransport<
-  const Mode extends WorkerOutputMode = 'wrapped',
-  const Version extends ApiVersion = 'v1',
->(opts: CreateTransportOpts<Mode>): ActivationHandler<Mode> {
+export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>(
+  opts: CreateTransportOpts<Mode>,
+): ActivationHandler<Mode> {
   const {limits, entry, output} = opts
   let stream = (opts.stream ?? process.stdout) as StreamLike
 
