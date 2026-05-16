@@ -9,7 +9,13 @@ import {
   ActivationHandler,
 } from './core/types.js'
 import {runWorker} from './core/worker.js'
-import {compact, completeWorkerSetup} from './util/setup.js'
+import {
+  activationRecord,
+  compactId,
+  completeWorkerSetup,
+  createContextForActivation,
+  createStream,
+} from './util/setup.js'
 import {readFileSync} from 'fs'
 import {StreamLike} from './types/stream-like.type.js'
 import {WorkerErrorCode, WorkerError, WorkerException} from './types/error.types.js'
@@ -417,7 +423,7 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
   logger.system(`new context started (ctx: ${ctx.contextId})`)
 
   const handle: ActivationHandler<Mode> = async (activation) => {
-    const activationCtx = createContextForActivation(ctx, activation, logger)
+    const activationCtx = createContextForActivation({ctx, activation, logger})
 
     setActivationId(activationCtx.activationId!)
 
@@ -444,19 +450,7 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
         return result.ok ? result.result : result.error
       }
 
-      let formatSubject: TransportResult<'wrapped'> = {
-        version: 'v1',
-        ok: true,
-        result: result.result,
-        error: result.error,
-        duration: result.duration,
-      }
-
-      if (contractVersion === 'v1.1') {
-        formatSubject = {...formatSubject, version: 'v1.1', activationId: activationCtx.activationId!}
-      }
-
-      return formatWrappedTransportResult(formatSubject)
+      return formatWrappedTransportResult({...result, activationId: ctx.activationId, version: contractVersion})
     } catch (error: any) {
       record.error(error?.code ?? error?.message ?? 'unknown', performance.now() - start)
 
@@ -469,101 +463,4 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
   }
 
   return handle
-}
-
-// these need to relocated
-function createStream(stream?: 'none' | StreamLike) {
-  if (!stream) {
-    return process.stdout
-  }
-
-  const noop = {
-    write: () => {},
-  }
-
-  return stream === 'none' ? noop : stream
-}
-
-function createActivationId(opts: {contractVersion: ContractVersion; id?: string; logger: any}): string {
-  const {contractVersion, id, logger} = opts
-  if (contractVersion === 'v1') {
-    return id ?? compact('act')
-  }
-
-  const actId = compact('act')
-  if (contractVersion === 'v1.1' && id) {
-    // produce warning
-    logger.warn(`providing an id at activation is unsupported by v1.1`, {tag: 'depreciation'})
-    return actId
-  }
-
-  return actId
-}
-
-function createContextForActivation<T>(ctx: Context<T>, activation: T | Activation<any>, logger: any): Context<T> {
-  const normalised = normaliseActivation(activation)
-  normalised.id = createActivationId({contractVersion: 'v1', id: normalised.id, logger: {}})
-
-  return {
-    ...ctx,
-    data: normalised.data ?? ctx.data,
-    env: normalised.env ?? ctx.env,
-    activationId: normalised.id,
-    meta: {
-      ...ctx.meta,
-      cwd: normalised.cwd ?? ctx.meta.cwd,
-    },
-  }
-}
-
-function isActivation<T = unknown>(input: unknown): input is Activation<T> {
-  if (input === null || typeof input !== 'object') {
-    return false
-  }
-
-  return 'data' in input || 'env' in input || 'id' in input || 'cwd' in input
-}
-
-function normaliseActivation<T>(input: T | Activation<T>): Activation<T> {
-  if (isActivation(input)) {
-    return input as Activation<T>
-  }
-
-  return {
-    data: input as T,
-  }
-}
-
-type ActivationRecordOpts = {
-  logger: any
-  version: string
-}
-
-// move these
-const activationRecord = (opts: ActivationRecordOpts) => {
-  const {logger, version} = opts
-
-  return {
-    success: (duration: number, message?: string) => {
-      let msg = message ?? `activation completed in ${duration} ms`
-
-      logger.activation(msg, {
-        version,
-        ok: true,
-        error: null,
-        duration,
-      })
-    },
-
-    error: (error: string, duration: number, message?: string) => {
-      let msg = message ?? `activation failed with ${error}`
-
-      logger.activation(msg, {
-        version,
-        ok: false,
-        error,
-        duration,
-      })
-    },
-  }
 }

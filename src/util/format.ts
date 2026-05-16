@@ -1,6 +1,7 @@
 import {DEFAULTS} from '../constants.js'
+import {Activation} from '../core/types.js'
 import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
-import {TransportResult, WorkerResult} from '../types/result.types.js'
+import {ContractVersion, TransportResult, WorkerResult} from '../types/result.types.js'
 import {Signal} from '../types/signal.types.js'
 
 export function normaliseKeys(value: any): any {
@@ -80,4 +81,22 @@ export function normaliseWorkerError(err: WorkerError): WorkerError {
 export function workerError(message: string, opts: WorkerErrorOpts = {}) {
   const errorData = {...DEFAULTS.error, ...opts, message, isWorkerError: true}
   return normaliseWorkerError(errorData)
+}
+
+export function normaliseActivation<T>(input: T | Activation<T>): Activation<T> {
+  if (isActivation(input)) {
+    return input as Activation<T>
+  }
+
+  return {
+    data: input as T,
+  }
+}
+
+export function isActivation<T = unknown>(input: unknown): input is Activation<T> {
+  if (input === null || typeof input !== 'object') {
+    return false
+  }
+
+  return 'data' in input || 'env' in input || 'id' in input || 'cwd' in input
 }
