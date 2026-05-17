@@ -46,11 +46,23 @@ export enum WorkerErrorCode {
    * The entry file cannot be resolved, loaded, or parsed.
    *
    * ### Common causes:
-   * - File does not exist
+   * - File does not exist (pre-v1.1)
    * - Syntax error in module
    * - Unsupported module format (CJS/ESM mismatch)
    */
   CODE_INVALID_ENTRY_FILE = 'CODE_INVALID_ENTRY_FILE',
+
+  /**
+   * ## Missing Entry File
+   *
+   * The entry file path does not exist.
+   *
+   * This is checked before the container starts (since **v1.1**).
+   *
+   * ### Common causes:
+   * - File does not exist (post-v1.1)
+   */
+  CODE_NO_ENTRY_FILE = 'CODE_NO_ENTRY_FILE',
 
   /**
    * ## Invalid Default Export

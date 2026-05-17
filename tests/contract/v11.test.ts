@@ -54,6 +54,10 @@ describe('Workers Public API (v1.1)', () => {
       expect(res).toBeUndefined()
     } catch (error: any) {
       expect(error.isWorkerError).toBeTruthy()
+
+      // note: as contractVersion: v1 the error thrown should
+      // *not* be CODE_NO_ENTRY_FILE.
+      expect(error.code).toBe(WorkerErrorCode.CODE_INVALID_ENTRY_FILE)
     }
 
     const signal = stream
@@ -76,6 +80,8 @@ describe('Workers Public API (v1.1)', () => {
       expect(error).toBeInstanceOf(WorkerException)
       expect(error.isWorkerError).toBeTruthy()
       expect(error.name).toBe('WorkerException')
+
+      expect(error.code).toBe(WorkerErrorCode.CODE_NO_ENTRY_FILE)
     }
   })
 

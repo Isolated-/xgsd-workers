@@ -437,7 +437,7 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
     throw WorkerException.from(
       workerError(`"${ctx.meta.entry}" does not exist.`, {
         type: 'user',
-        code: WorkerErrorCode.CODE_INVALID_ENTRY_FILE,
+        code: WorkerErrorCode.CODE_NO_ENTRY_FILE,
       }),
     )
   }
