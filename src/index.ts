@@ -442,7 +442,7 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
     )
   }
 
-  if (contractVersion) logger.system(`new context started (ctx: ${ctx.contextId})`)
+  logger.system(`new context started (ctx: ${ctx.contextId})`)
 
   const handle: ActivationHandler<Mode> = async (activation) => {
     const activationCtx = createContextForActivation({ctx, activation, logger})
