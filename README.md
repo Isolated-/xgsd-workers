@@ -141,6 +141,59 @@ You are free to use, modify, distribute, and build on this project, including fo
 
 ---
 
+## Worker example (real API)
+
+Here's an API that you can use to hash data.
+
+It's a simple working example of Workers.js in a cloud environment.
+
+- **Base url**: `https://workers-test-api.xgsd.io`.
+- **Endpoint**: `/hash`.
+- **Method**: `POST`.
+
+### Request
+
+You only need to send `data` in your request. Everything else is optional.
+
+```json
+{
+  "data": "hello world",
+  "alg": "sha256",
+  "encoding": "hex",
+  "hash": "..."
+}
+```
+
+**Defaults**:
+
+- `alg` - `sha256`
+- `encoding` - `base64`
+- `hash` - `undefined`
+
+### Response
+
+Here's an example response:
+
+```json
+{
+  "activationId": "act_a72908cd1e4f",
+  "version": "v1.1",
+  "ok": true,
+  "result": {
+    "hash": "9ddefe4435b21d901439e546d54a14a175a3493b9fd8fbf38d9ea6d3cbf70826",
+    "alg": "sha256",
+    "encoding": "hex",
+    "equal": false
+  },
+  "error": null,
+  "duration": 69.68
+}
+```
+
+If you provide a `hash` then it will be compared and `equal` will contain the result.
+
+---
+
 ## Documentation
 
 Read the [**Documentation**](https://docs.xgsd.io).
