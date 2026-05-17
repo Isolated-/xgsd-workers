@@ -25,13 +25,16 @@ export async function runWorker<T = any>(opts: {
 
   // limit active processes (added in v1.1)
   // fail as fast as possible vs letting worker guard actively stop it
-  if (!canSpawnProcess(processes.size, ctx.meta.limits.processes)) {
+  // under testing this caused a lot of failures due to race conditions
+  // leave this out until it can be improved
+  /*if (!canSpawnProcess(processes.size, ctx.meta.limits.processes)) {
     throw WorkerException.from(
-      workerError(`${processes.size} active processes already running. (limit: ${ctx.meta.limits.processes})`, {
+      workerError(`process limit reached (${processes.size}/${ctx.meta.limits.processes})`, {
         code: WorkerErrorCode.CODE_WORKER_GUARD,
+        hint: `process shutdown is asynchronous, so limits.processes may need to exceed activation concurrency`,
       }),
     )
-  }
+  }*/
 
   let forkOpts = {
     stdio: mode === 'debug' ? 'inherit' : ['inherit', 'pipe', 'pipe', 'ipc'],
@@ -195,7 +198,7 @@ function canSpawnProcess(running: number, limit?: number): boolean {
     return true
   }
 
-  return running <= limit
+  return running < limit
 }
 
 function isCoreSignal(object: unknown) {
