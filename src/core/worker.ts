@@ -1,6 +1,6 @@
 import {fork} from 'child_process'
 import {Context} from './types.js'
-import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
+import {WorkerError, WorkerErrorCode, WorkerException} from '../types/error.types.js'
 import {SignalContext} from './signal.js'
 import {formatWorkerResult, workerError} from '../util/format.js'
 import {fileURLToPath} from 'url'
@@ -23,7 +23,15 @@ export async function runWorker<T = any>(opts: {
   const start = performance.now()
   const {ctx, logger, mode} = opts
 
-  // this was added in v1.1
+  // limit active processes (added in v1.1)
+  // fail as fast as possible vs letting worker guard actively stop it
+  if (!canSpawnProcess(processes.size, ctx.meta.limits.processes)) {
+    throw WorkerException.from(
+      workerError(`${processes.size} active processes already running. (limit: ${ctx.meta.limits.processes})`, {
+        code: WorkerErrorCode.CODE_WORKER_GUARD,
+      }),
+    )
+  }
 
   let forkOpts = {
     stdio: mode === 'debug' ? 'inherit' : ['inherit', 'pipe', 'pipe', 'ipc'],
@@ -48,7 +56,6 @@ export async function runWorker<T = any>(opts: {
     forkOpts = {...forkOpts, ...optsv11}
   }
 
-  // TODO: remove hardcoded worker path
   const path = resolveProcessPath()
   const child = fork(path, forkOpts as any)
 
@@ -181,6 +188,14 @@ function containerManager<T>(opts: {child: any; logger: any; ctx: Context<T>; st
       resolve(result)
     }
   })
+}
+
+function canSpawnProcess(running: number, limit?: number): boolean {
+  if (limit === undefined) {
+    return true
+  }
+
+  return running <= limit
 }
 
 function isCoreSignal(object: unknown) {

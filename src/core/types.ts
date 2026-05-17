@@ -30,6 +30,15 @@ export type WorkerGuardOpts = {
   memory: MemoryType | number
 
   /**
+   * Maximum amount of child processes active at once.
+   *
+   * By V2 this will default to number of CPUs.
+   *
+   * @since v1.1
+   */
+  processes?: number
+
+  /**
    * Determines what happens when
    * a worker guard suspends a process.
    *

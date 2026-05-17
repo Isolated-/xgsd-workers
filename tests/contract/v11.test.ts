@@ -5,6 +5,17 @@ import {WorkerErrorCode, WorkerException} from '../../src/types/error.types.js'
 import {createTestTransport} from './util.js'
 
 describe('Workers Public API (v1.1)', () => {
+  test('active processes can be limited', async () => {
+    const {transport} = createTestTransport('benchmark.js', {contractVersion: 'v1.1', limits: {processes: 0}})
+
+    try {
+      await transport()
+      expect(true).toBe(false)
+    } catch (error) {
+      expect(error).toBeInstanceOf(WorkerException)
+    }
+  })
+
   test('contract version must be valid and supported', () => {
     try {
       createTestTransport('does-nothing.js', {contractVersion: 'v2'})

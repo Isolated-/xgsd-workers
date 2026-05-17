@@ -246,6 +246,12 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
     memory?: MemoryType
 
     /**
+     * Maximum number of active child processes.
+     * Added in v1.1.
+     */
+    processes?: number
+
+    /**
      *  added in v1.0.3
      *  when worker guard is triggered promise will be rejected vs resolved
      */

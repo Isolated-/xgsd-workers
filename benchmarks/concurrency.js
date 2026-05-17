@@ -23,6 +23,8 @@ const handler = createTransport({
   stream: 'none',
   limits: {
     memory: 32,
+    ttl: 1500,
+    processes: CONCURRENCY * 2,
   },
 })
 
