@@ -126,7 +126,10 @@ function containerManager<T>(opts: {child: any; logger: any; ctx: Context<T>; st
         if (child.exitCode === null) {
           logger.warn(`escalating to SIGKILL (${child.pid})`)
 
-          child.disconnect()
+          if (child.connected) {
+            child.disconnect()
+          }
+
           child.kill('SIGKILL')
         }
       }, DEFAULTS.defaultTerminationTime)
