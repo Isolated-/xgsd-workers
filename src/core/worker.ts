@@ -227,10 +227,12 @@ function collector(logger: any, type: 'stdout' | 'stderr', pid: number) {
         } else {
           // unstructured json logs are wrapped as generic
           // allowing users to define their own structure
+          // instead of wrapping user messages as "custom user signal"
+          // stringify the meta object (added in v1.1.2)
           logger.signal({
             pid,
             type: 'user',
-            message: json.message ?? 'custom user signal',
+            message: json.message ?? JSON.stringify(json ?? {}),
             meta: json.meta ?? json,
           })
         }

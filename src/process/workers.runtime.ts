@@ -126,21 +126,6 @@ export function completePreChecks(version: string, stdout: any, stderr: any) {
   const {version: vers, platform, arch, pid} = process
 
   stdout.log(`container started (pid: ${pid})`)
-  /*stdout.log(`container memory usage at start ${before.rss} MB (heap: ${before.heapUsed}MB/${before.heapTotal}MB)`, {
-    workers: version,
-    heapUsed: before.heapUsed,
-    heapTotal: before.heapTotal,
-    rss: before.rss,
-    tag: 'debug',
-  })*/
-
-  /* stdout.log(`@xgsd/workers v${version}`, {tag: 'debug', workers: version})
-  stdout.log(`Node.js ${process.version} (${process.platform} ${process.arch})`, {
-    tag: 'debug',
-    node: process.version,
-    arch: process.arch,
-    platform: process.platform,
-  })*/
 
   const message = `@xgsd/workers v${version} - node ${vers} (${platform} ${arch})`
   stdout.log(message, {
