@@ -1,13 +1,10 @@
 import {compose, Middleware, UserMiddlewareFn} from '../core/compose.js'
 import {Context, ExitCode} from '../core/types.js'
-import {WorkerError, WorkerErrorCode} from '../types/error.types.js'
 import {createLogger} from '../core/shared.js'
 import {
   completePreChecks,
   completeSerialisationCheck,
   importUserModule,
-  memorySnapshot,
-  numberFixed2,
   usercodeMiddlewareWrapper,
   validateUserMiddleware,
   validateUserModule,
@@ -39,7 +36,7 @@ async function runtime<T>(opts: RuntimeOpts<T>) {
 
     completePreChecks(version, stdout, stderr)
 
-    // load user mod
+    // load user module
     let mod
     try {
       mod = await importUserModule(ctx.meta.entry, ctx.contractVersion)
@@ -66,12 +63,6 @@ async function runtime<T>(opts: RuntimeOpts<T>) {
       } catch (error: any) {
         return err(error)
       }
-
-      //const duration = performance.now() - start
-      /*stdout.log(`loaded ${middleware.length} middleware functions in ${numberFixed2(duration)} ms`, {
-        duration,
-        tag: 'info',
-      })*/
     }
 
     // if middleware() (register function) is exported but invalid just warn the user
@@ -81,30 +72,8 @@ async function runtime<T>(opts: RuntimeOpts<T>) {
     }
 
     const bootstrap = compose([...middleware, usercodeMiddlewareWrapper(mod.default)])
-    const {limits} = ctx.meta
-    const {ttl, memory} = limits
 
-    /*stdout.log(`running worker + ${middleware.length} middleware (ttl: ${ttl} ms, memory: ${memory} MB)`, {
-      tag: 'info',
-      version,
-    })*/
-
-    const start = performance.now()
     const result = await bootstrap(ctx)
-    const duration = performance.now() - start
-
-    /*stdout.log(`worker finished in ${duration.toFixed(2)} ms`, {duration, tag: 'debug'})*/
-
-    const after = memorySnapshot()
-    /*stdout.log(`container memory usage at end ${after.rss} MB (heap: ${after.heapUsed}MB/${after.heapTotal}MB)`, {
-      workers: version,
-      heapUsed: after.heapUsed,
-      heapTotal: after.heapTotal,
-      rss: after.rss,
-      tag: 'debug',
-    })*/
-
-    //stdout.log(`ensuring data can be safely serialised`)
 
     try {
       const {onError} = ctx.meta.output
