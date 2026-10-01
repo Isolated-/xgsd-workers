@@ -5,13 +5,13 @@ export function createLogger(s?: StreamLike) {
 
   return {
     log: (message: string, meta?: Record<string, unknown>) => {
-      stream.write(JSON.stringify({__sys: true, pid: process.pid, type: 'system', message, meta}) + '\n')
+      //stream.write(JSON.stringify({__sys: true, pid: process.pid, type: 'system', message, meta}) + '\n')
     },
     metric: (meta: Record<string, unknown>) => {
-      stream.write(JSON.stringify({__sys: true, pid: process.pid, type: 'metric', message: 'metric', meta}) + '\n')
+      //stream.write(JSON.stringify({__sys: true, pid: process.pid, type: 'metric', message: 'metric', meta}) + '\n')
     },
     error: (message: string, meta?: Record<string, unknown>) => {
-      stream.write(
+      /*stream.write(
         JSON.stringify({
           __sys: true,
           pid: process.pid,
@@ -19,10 +19,10 @@ export function createLogger(s?: StreamLike) {
           message: message,
           meta,
         }) + '\n',
-      )
+      )*/
     },
     warn: (message: string, meta?: Record<string, unknown>) => {
-      stream.write(
+      /*stream.write(
         JSON.stringify({
           __sys: true,
           pid: process.pid,
@@ -30,7 +30,7 @@ export function createLogger(s?: StreamLike) {
           message: message,
           meta,
         }) + '\n',
-      )
+      )*/
     },
   }
 }

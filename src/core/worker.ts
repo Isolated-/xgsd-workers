@@ -19,6 +19,7 @@ export async function runWorker<T = any>(opts: {
   logger: any
   signal?: SignalContext
   mode?: 'default' | 'debug'
+  abort?: AbortController
 }) {
   const start = performance.now()
   const {ctx, logger, mode} = opts
@@ -43,11 +44,12 @@ export async function runWorker<T = any>(opts: {
       ...ctx.env,
       XGSD_WORKERS_VERSION: ctx.meta.version,
     },
+    signal: opts.abort ? opts.abort.signal : undefined,
   }
 
   if (ctx.contractVersion) {
     const optsv11 = {
-      timeout: ctx.meta.limits.ttl * 2,
+      timeout: ctx.meta.limits.ttl !== 'none' ? ctx.meta.limits.ttl * 2 : undefined,
       cwd: ctx.meta.cwd,
       killSignal: 'SIGTERM',
       env: {
@@ -88,8 +90,8 @@ function containerManager<T>(opts: {child: any; logger: any; ctx: Context<T>; st
 
   return new Promise((resolve, reject) => {
     // collect stdout/err logs -> Signals
-    child.stdout?.on('data', collector(logger, 'stdout', child.pid))
-    child.stderr?.on('data', collector(logger, 'stderr', child.pid))
+    //child.stdout?.on('data', collector(logger, 'stdout', child.pid))
+    //child.stderr?.on('data', collector(logger, 'stderr', child.pid))
 
     let timeout: NodeJS.Timeout
     let cleaningUp = false

@@ -25,8 +25,10 @@ export type WorkerOutputMode = 'raw' | 'wrapped' | 'auto'
 
 export type GuardErrorBehaviour = Exclude<ErrorBehaviour, 'warn' | 'drop'>
 
+export type Optional<T> = T | 'none'
+
 export type WorkerGuardOpts = {
-  ttl: number
+  ttl: Optional<number>
   memory: MemoryType | number
 
   /**

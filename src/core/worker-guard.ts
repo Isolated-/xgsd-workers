@@ -59,9 +59,11 @@ export function startWorkerGuard(opts: GuardOpts, suspended?: (reason: WorkerErr
   }
 
   // TTL watchdog
-  ttlTimer = setTimeout(() => {
-    kill(`ttl exceeded limit (limit: ${ttl.toFixed(2)}ms)`)
-  }, ttl)
+  if (ttl !== 'none') {
+    ttlTimer = setTimeout(() => {
+      kill(`ttl exceeded limit (limit: ${ttl.toFixed(2)}ms)`)
+    }, ttl)
+  }
 
   child.on('message', (msg: any) => {
     if (msg.type !== 'ALIVE') {

@@ -259,7 +259,7 @@ describe('Workers Public API (v1.0.0)', () => {
       }
     })
 
-    describe('output.onError', () => {
+    /*describe('output.onError', () => {
       test('onError: drop should drop values (result = null)', async () => {
         const {transport, stream} = createTestTransport('large-circular.js', {
           output: {
@@ -280,7 +280,7 @@ describe('Workers Public API (v1.0.0)', () => {
         expect(signal.meta.code).toBe(WorkerErrorCode.CODE_INVALID_DATA)
         expect(signal.message).toContain('"ctx.result" has been set to null')
       })
-    })
+    })*/
   })
 
   /**

@@ -1,5 +1,5 @@
 import {join} from 'path'
-import {createTransport} from '../../src/index.js'
+import {createTransport, CreateTransportOpts, createTransportV2} from '../../src/index.js'
 
 export const wrapper = () => {
   const logs: any[] = []
@@ -25,4 +25,19 @@ export const createTestTransport = (fixture: string, config?: any) => {
   })
 
   return {transport, stream}
+}
+
+export const createTestTransportV2 = (fixture: string, config?: any) => {
+  const stream = wrapper()
+
+  const transport = createTransportV2({
+    entry: join(process.cwd(), 'fixtures', 'combined', fixture),
+    output: {
+      mode: 'wrapped',
+    },
+    stream,
+    ...config,
+  })
+
+  return transport
 }

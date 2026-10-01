@@ -254,12 +254,16 @@ export type CreateTransportOpts<Mode extends WorkerOutputMode = 'wrapped'> = {
     [key: string]: unknown
   }
 
-  // TODO: remove this
   console?:
     | 'debug'
     | {
         mode: 'debug'
       }
+
+  /**
+   *  Added in v2
+   */
+  abort?: AbortController
 
   /**
    * Worker output configuration.
@@ -463,6 +467,7 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
         ctx: activationCtx,
         logger,
         mode: consoleMode,
+        abort: opts.abort,
       })) as any
 
       // activation record
@@ -485,4 +490,23 @@ export function createTransport<const Mode extends WorkerOutputMode = 'wrapped'>
   }
 
   return handle
+}
+
+export function createTransportV2<const Mode extends WorkerOutputMode = 'wrapped'>(opts: CreateTransportOpts<Mode>) {
+  const controller = new AbortController()
+  const handler = createTransport({
+    ...opts,
+    abort: controller,
+  })
+
+  const abort = () => {
+    try {
+      controller.abort()
+    } catch {}
+  }
+
+  return {
+    abort,
+    execute: handler,
+  }
 }

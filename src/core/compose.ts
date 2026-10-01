@@ -65,23 +65,3 @@ export function compose(middleware: Middleware[]): ComposedMiddleware {
     return res
   }
 }
-
-function createWorkerResult<T>(opts: {
-  result: {error?: any; result?: any | null; data?: any}
-  duration: number
-}): WorkerResult<T> {
-  const {duration, result} = opts
-
-  const ok = result.error === null
-
-  return {
-    version: 'v1',
-    ok,
-    // leave this alone, this works
-    // change something = tests broken
-    // will fix ASAP
-    result: result.data?.result ?? null,
-    error: result.error ?? result.data?.error ?? null,
-    duration,
-  } as WorkerResult<T>
-}
